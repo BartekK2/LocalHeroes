@@ -1,0 +1,217 @@
+/* AnimatedSVG.css - Styles for animated SVG components */
+
+.animated-svg-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+}
+
+/* Blob styles */
+.svg-blob {
+    position: absolute;
+    filter: blur(2px);
+    animation: floatRotate 20s ease-in-out infinite;
+}
+
+.svg-blob.blob-1 {
+    width: 350px;
+    height: 350px;
+    top: -50px;
+    right: -50px;
+    animation-duration: 15s;
+}
+
+.svg-blob.blob-2 {
+    width: 250px;
+    height: 250px;
+    bottom: -30px;
+    left: -30px;
+    animation-duration: 18s;
+    animation-direction: reverse;
+}
+
+/* Pulsing circles */
+.svg-circles {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.pulse-circle {
+    fill: none;
+    stroke: var(--color-primary, #6366f1);
+    stroke-width: 1;
+    opacity: 0.3;
+}
+
+.pulse-circle.c1 {
+    animation: pulse-ring 3s ease-out infinite;
+}
+
+.pulse-circle.c2 {
+    animation: pulse-ring 3s ease-out infinite 0.5s;
+}
+
+.pulse-circle.c3 {
+    animation: pulse-ring 3s ease-out infinite 1s;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(1);
+        opacity: 0.4;
+    }
+
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+/* Floating stars */
+.floating-stars {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.star {
+    position: absolute;
+    fill: var(--color-secondary, #f59e0b);
+    animation: float 3s ease-in-out infinite;
+}
+
+.star-1 {
+    width: 20px;
+    height: 20px;
+    top: 20%;
+    left: 15%;
+    animation-delay: 0s;
+    opacity: 0.7;
+}
+
+.star-2 {
+    width: 16px;
+    height: 16px;
+    top: 60%;
+    right: 20%;
+    animation-delay: 0.5s;
+    opacity: 0.6;
+}
+
+.star-3 {
+    width: 12px;
+    height: 12px;
+    bottom: 25%;
+    left: 40%;
+    animation-delay: 1s;
+    opacity: 0.5;
+}
+
+/* Float rotation animation */
+@keyframes floatRotate {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(0deg);
+    }
+
+    25% {
+        transform: translateY(-15px) rotate(5deg);
+    }
+
+    50% {
+        transform: translateY(0) rotate(0deg);
+    }
+
+    75% {
+        transform: translateY(-10px) rotate(-5deg);
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-15px);
+    }
+}
+
+/* Animated loader */
+.animated-loader {
+    width: 50px;
+    height: 50px;
+}
+
+.loader-track {
+    fill: none;
+    stroke: rgba(99, 102, 241, 0.2);
+    stroke-width: 4;
+}
+
+.loader-path {
+    fill: none;
+    stroke: #6366f1;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-dasharray: 125;
+    stroke-dashoffset: 100;
+    animation: loader-spin 1.5s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes loader-spin {
+    0% {
+        stroke-dashoffset: 125;
+        transform: rotate(0deg);
+    }
+
+    50% {
+        stroke-dashoffset: 25;
+        transform: rotate(180deg);
+    }
+
+    100% {
+        stroke-dashoffset: 125;
+        transform: rotate(360deg);
+    }
+}
+
+/* Particle background */
+.particle-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.particle {
+    opacity: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .svg-blob.blob-1 {
+        width: 200px;
+        height: 200px;
+    }
+
+    .svg-blob.blob-2 {
+        width: 150px;
+        height: 150px;
+    }
+
+    .svg-circles {
+        width: 150px;
+        height: 150px;
+    }
+}

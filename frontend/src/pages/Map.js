@@ -3,7 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import { dataContext } from '../API/DataContext';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import Profil from '../components/profil';
-import { TextField, Button, Box, InputAdornment } from '@mui/material';
+import { Box, TextField, Button, Paper, Typography } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 
 const MapboxExample = ({ view = "customer" }) => {
@@ -138,7 +138,7 @@ const MapboxExample = ({ view = "customer" }) => {
               'fill-extrusion-color': [
                 'case',
                 ['boolean', ['feature-state', 'select'], false],
-                '#2563eb', // Theme primary color (blue)
+                '#6366f1', // Theme primary color (indigo)
                 '#f5f0e5'
               ],
               'fill-extrusion-height': ['get', 'height'],
@@ -218,93 +218,116 @@ const MapboxExample = ({ view = "customer" }) => {
   const selectedBusiness = nearbyBusinesses.find((b) => String(b.numer_na_mapie) === String(selected));
 
   return (
-    <Box className="map-page animate-fade-in" sx={{ position: 'relative' }}>
+    <Box
+      sx={{
+        position: 'relative',
+        height: 'calc(100vh - 64px)',
+        width: '100%',
+      }}
+    >
       <Profil
         businessId={selectedBusiness ? selectedBusiness.userId : "0"}
         visible={selectedBusiness && popupVisible}
         onClose={() => setPopupVisible(false)}
       />
 
-      {/* Search Form */}
-      <Box
+      {/* Search Bar Overlay */}
+      <Paper
         component="form"
         onSubmit={handleSearch}
+        elevation={0}
         sx={{
           position: 'absolute',
-          top: 16,
+          top: 20,
           left: '50%',
           transform: 'translateX(-50%)',
-          zIndex: 1000,
+          zIndex: 10,
           display: 'flex',
+          alignItems: 'center',
           gap: 1,
-          p: 1.5,
+          p: 0.75,
+          pl: 2,
+          borderRadius: '16px',
           background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: 3,
-          boxShadow: '0 4px 24px rgba(37, 99, 235, 0.15)',
-          width: { xs: '90%', sm: 'auto' },
-          maxWidth: 500,
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          border: '1px solid rgba(99, 102, 241, 0.1)',
+          width: { xs: 'calc(100% - 40px)', sm: '400px', md: '500px' },
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            boxShadow: '0 12px 40px rgba(99, 102, 241, 0.15)',
+          },
+          '&:focus-within': {
+            boxShadow: '0 12px 40px rgba(99, 102, 241, 0.2)',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+          }
         }}
       >
+        <SearchIcon sx={{ color: 'text.secondary', ml: 0.5 }} />
         <TextField
-          placeholder="Wpisz adres (np. Pałac Kultury)"
+          placeholder="Szukaj lokalizacji (np. Pałac Kultury)"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          size="small"
-          sx={{
-            minWidth: { xs: 'auto', sm: 280 },
-            flex: 1,
-            '& .MuiOutlinedInput-root': {
-              background: 'white',
+          variant="standard"
+          fullWidth
+          InputProps={{
+            disableUnderline: true,
+            sx: {
+              fontSize: '0.95rem',
             }
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon color="action" />
-              </InputAdornment>
-            ),
+          sx={{
+            '& .MuiInputBase-root': {
+              padding: 0,
+            }
           }}
         />
         <Button
           type="submit"
           variant="contained"
-          color="primary"
           sx={{
-            px: 3,
-            whiteSpace: 'nowrap',
+            minWidth: 'auto',
+            px: 2.5,
+            py: 1,
+            borderRadius: '12px',
+            fontWeight: 600,
           }}
         >
           Szukaj
         </Button>
-      </Box>
+      </Paper>
 
       {/* Coordinates Display */}
-      <Box
+      <Paper
+        elevation={0}
         sx={{
           position: 'absolute',
-          bottom: 16,
-          left: 16,
-          zIndex: 1000,
-          background: 'rgba(15, 23, 42, 0.85)',
-          color: 'white',
+          bottom: 20,
+          left: 20,
+          zIndex: 10,
           px: 2,
-          py: 1,
-          borderRadius: 2,
-          fontSize: '0.75rem',
-          fontFamily: 'monospace',
-          backdropFilter: 'blur(4px)',
+          py: 1.5,
+          borderRadius: '12px',
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+          border: '1px solid rgba(99, 102, 241, 0.1)',
         }}
       >
-        {viewState.lat}, {viewState.lng}
-      </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          Współrzędne
+        </Typography>
+        <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace' }}>
+          {viewState.lat}°N, {viewState.lng}°E
+        </Typography>
+      </Paper>
 
       {/* Map Container */}
       <Box
         ref={mapContainerRef}
         sx={{
-          height: 'calc(100vh - 64px)',
           width: '100%',
+          height: '100%',
           borderRadius: 0,
         }}
       />

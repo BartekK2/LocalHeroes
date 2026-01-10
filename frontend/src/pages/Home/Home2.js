@@ -4,6 +4,7 @@ import './Home.css';
 import { Link } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../../API/AuthContext";
+import { FloatingShapes } from "../../components/AnimatedSvg";
 
 // Animation variants
 const containerVariants = {
@@ -77,6 +78,7 @@ function Home() {
   return (
     <div className="home-container">
       {/* Animowane tło SVG */}
+      <FloatingShapes />
 
       <motion.div
         className="home-left"
@@ -119,10 +121,10 @@ function Home() {
                 color="primary"
                 size="large"
                 component={Link}
-                to="/shop"
+                to="/settings"
                 className="animated-button"
               >
-                Lokalne biznesy
+                Mój profil
               </Button>
             </motion.div>
           </motion.div>
