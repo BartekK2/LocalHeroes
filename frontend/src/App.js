@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home/Home';
 import Login from './pages/Login_Registration/Login';
 import "./App.css"
+import MapboxExample from './pages/Map';
 
 import Navbar from './Navbar/Navbar'
 
@@ -22,6 +23,8 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/map" element={<MapboxExample />} />
+
 
             </Routes>
           </BrowserRouter>
