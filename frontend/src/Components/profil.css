@@ -1,0 +1,221 @@
+/* --- Overlay (Tło) --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* Wysoki z-index żeby był nad mapą */
+  animation: fadeIn 0.3s ease;
+}
+
+/* --- Karta Biznesowa --- */
+.business-card {
+  background: #fff;
+  width: 90%;
+  max-width: 420px;
+  border-radius: 20px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+  overflow: hidden;
+  position: relative;
+  font-family: 'Segoe UI', sans-serif;
+  animation: slideUp 0.3s ease;
+}
+
+/* Przycisk Zamknięcia X */
+.close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: rgba(255,255,255,0.4);
+}
+
+/* --- Sekcja Nagłówka --- */
+.card-header {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+  padding: 30px 20px 20px;
+}
+
+.category-badge {
+  background: rgba(255,255,255,0.2);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-header h2 {
+  margin: 10px 0 5px;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.rating-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.star { color: #ffd700; }
+.reviews-count { opacity: 0.8; font-size: 0.8rem; }
+
+/* --- Sekcja Informacji --- */
+.card-body {
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-row {
+  margin: 8px 0;
+  color: #555;
+  font-size: 0.95rem;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.info-row a { 
+  color: #4f46e5; 
+  text-decoration: none; 
+  font-weight: 500; 
+}
+.info-row a:hover { text-decoration: underline; }
+
+/* --- Sekcja Nagród --- */
+.rewards-section {
+  padding: 20px;
+  background-color: #fafafa;
+}
+
+.rewards-section h3 {
+  margin: 0 0 15px;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.rewards-list {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 5px; 
+}
+
+/* Custom Scrollbar */
+.rewards-list::-webkit-scrollbar { width: 6px; }
+.rewards-list::-webkit-scrollbar-track { background: transparent; }
+.rewards-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+.empty-rewards {
+  color: #888;
+  text-align: center;
+  font-size: 0.9rem;
+  margin-top: 10px;
+}
+
+.reward-item {
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.reward-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.reward-info h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.reward-info p {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.reward-cost {
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+/* --- Stopka --- */
+.card-footer {
+  padding: 15px 20px;
+  background: white;
+  text-align: center;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 12px;
+  background: #111827;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.action-btn:hover { background: #374151; }
+
+/* --- Loading & Error --- */
+.loading-state, .error-state {
+  padding: 50px 20px;
+  text-align: center;
+  color: #666;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4f46e5;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

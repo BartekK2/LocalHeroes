@@ -582,6 +582,41 @@ app.put('/profile', verifyToken, async (req, res) => {
     }
 });
 
+// --- NOWY ENDPOINT: Publiczne dane firmy + nagrody ---
+app.get('/public/business/:id', async (req, res) => {
+    try {
+        const businessId = parseInt(req.params.id);
+
+        // 1. Pobierz dane firmy
+        const business = await Business.findByPk(businessId, {
+            attributes: [
+                'nazwa_firmy', 'kategoria_biznesu', 'miasto', 'ulica', 
+                'numer_budynku', 'srednia_ocena', 'liczba_opinii', 
+                'numer_kontaktowy_biznes', 'link_do_strony_www', 'numer_na_mapie'
+            ]
+        });
+
+        if (!business) {
+            return res.status(404).json({ message: "Firma nie znaleziona" });
+        }
+
+        // 2. Pobierz aktywne nagrody dla tej firmy
+        const rewards = await Reward.findAll({
+            where: { 
+                businessId: businessId,
+                czy_aktywna: true 
+            },
+            attributes: ['id', 'nazwa', 'opis', 'koszt_punktowy', 'typ', 'wartosc_rabatu']
+        });
+
+        res.json({ business, rewards });
+    } catch (error) {
+        console.error("Błąd pobierania wizytówki:", error);
+        res.status(500).json({ message: "Błąd serwera" });
+    }
+});
+
+
 // --- URUCHOMIENIE SERWERA (ZAWSZE NA SAMYM KOŃCU) ---
 
 app.listen(5000, async () => {
