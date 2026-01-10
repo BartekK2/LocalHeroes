@@ -1,15 +1,13 @@
-import React, { useEffect, useRef, useState, useContext } from 'react';
+import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { dataContext } from '../API/DataContext';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import Profil from '../components/profil';
+import { TextField, Button, Box, InputAdornment } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 
-const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzację propsów
+const MapboxExample = ({ view = "customer" }) => {
   const { fetchNearbyBusinesses, nearbyBusinesses } = useContext(dataContext);
-
-  const handleBuildings = (lat, lng, radius) => {
-    fetchNearbyBusinesses(lat, lng, radius);
-  };
 
   const mapContainerRef = useRef();
   const [viewState, setViewState] = useState({
@@ -18,11 +16,11 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
     zoom: 15.5,
   });
   const lastFetchedPos = useRef({ lng: 0, lat: 0 });
-  const mapRef = useRef();
+  const mapRef = useRef(null);
   const [selected, setSelected] = useState("");
   const [popupVisible, setPopupVisible] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Referencja do aktualnego widoku, aby listener mapy go widział
   const viewRef = useRef(view);
   useEffect(() => {
     viewRef.current = view;
@@ -31,6 +29,11 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
   const TOKEN = 'pk.eyJ1IjoiYmFydGVrLWtyb2wyIiwiYSI6ImNtazhneGV0dDFkZDYzZXNjODcyY290NncifQ.47breRLsCjVz1kQhiMIZyw';
   const hoveredStateId = useRef(null);
   const [address, setAddress] = useState('');
+
+  // Memoized handler to avoid dependency issues
+  const handleBuildings = useCallback((lat, lng, radius) => {
+    fetchNearbyBusinesses(lat, lng, radius);
+  }, [fetchNearbyBusinesses]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -42,12 +45,14 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
       const data = await response.json();
       if (data.features && data.features.length > 0) {
         const [lng, lat] = data.features[0].center;
-        mapRef.current.flyTo({
-          center: [lng, lat],
-          zoom: 17,
-          pitch: 45,
-          essential: true
-        });
+        if (mapRef.current) {
+          mapRef.current.flyTo({
+            center: [lng, lat],
+            zoom: 17,
+            pitch: 45,
+            essential: true
+          });
+        }
       } else {
         alert("Nie znaleziono takiego adresu.");
       }
@@ -56,36 +61,49 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
     }
   };
 
-  // Synchronizacja podświetlenia budynków z danymi z kontekstu
+  // Safe setFeatureState helper
+  const safeSetFeatureState = useCallback((id, state) => {
+    if (mapRef.current && mapLoaded && id !== undefined && id !== null) {
+      try {
+        mapRef.current.setFeatureState(
+          { source: 'composite', sourceLayer: 'building', id: id },
+          state
+        );
+      } catch (error) {
+        console.warn('setFeatureState error:', error);
+      }
+    }
+  }, [mapLoaded]);
+
+  // Sync building highlights with data from context
   useEffect(() => {
-    if (!mapRef.current || !nearbyBusinesses || viewRef.current=="bussiness") return;
-    
-    // Opcjonalnie: można tu wyczyścić stany przed nałożeniem nowych
+    if (!mapLoaded || !nearbyBusinesses || viewRef.current === "bussiness") return;
+
     nearbyBusinesses.forEach(element => {
       if (element.numer_na_mapie) {
-        mapRef.current?.setFeatureState(
-          { source: 'composite', sourceLayer: 'building', id: element.numer_na_mapie },
-          { select: true }
-        );
+        safeSetFeatureState(element.numer_na_mapie, { select: true });
       }
     });
-  }, [nearbyBusinesses]);
+  }, [nearbyBusinesses, mapLoaded, safeSetFeatureState]);
 
   useEffect(() => {
     mapboxgl.accessToken = TOKEN;
-    mapRef.current = new mapboxgl.Map({
+
+    const map = new mapboxgl.Map({
       style: 'mapbox://styles/bartek-krol2/cmk8fvqpn005l01seba25dwsz',
       center: [20.0128, 50.1043],
       zoom: 15.5,
       pitch: 45,
       bearing: -17.6,
-      container: mapContainerRef.current, // Używamy ref zamiast ID stringa
+      container: mapContainerRef.current,
       antialias: true
     });
 
-    mapRef.current.on('move', () => {
-      const center = mapRef.current.getCenter();
-      const zoom = mapRef.current.getZoom();
+    mapRef.current = map;
+
+    map.on('move', () => {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
       setViewState({
         lng: center.lng.toFixed(4),
         lat: center.lat.toFixed(4),
@@ -93,22 +111,22 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
       });
     });
 
-    mapRef.current.on('style.load', () => {
-      if (!mapRef.current.getSource('composite')) {
-        mapRef.current.addSource('composite', {
+    map.on('style.load', () => {
+      if (!map.getSource('composite')) {
+        map.addSource('composite', {
           type: 'vector',
           url: 'mapbox://mapbox.mapbox-streets-v8'
         });
       }
 
-      const layers = mapRef.current.getStyle().layers;
+      const layers = map.getStyle().layers;
       const labelLayer = layers.find(
         (layer) => layer.type === 'symbol' && layer.layout['text-field']
       );
       const labelLayerId = labelLayer ? labelLayer.id : null;
 
-      if (!mapRef.current.getLayer('interactive-3d-buildings')) {
-        mapRef.current.addLayer(
+      if (!map.getLayer('interactive-3d-buildings')) {
+        map.addLayer(
           {
             id: 'interactive-3d-buildings',
             source: 'composite',
@@ -120,7 +138,7 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
               'fill-extrusion-color': [
                 'case',
                 ['boolean', ['feature-state', 'select'], false],
-                '#ff0000',
+                '#2563eb', // Theme primary color (blue)
                 '#f5f0e5'
               ],
               'fill-extrusion-height': ['get', 'height'],
@@ -132,8 +150,11 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
         );
       }
 
-      mapRef.current.on('moveend', () => {
-        const center = mapRef.current.getCenter();
+      // Mark map as loaded AFTER layer is added
+      setMapLoaded(true);
+
+      map.on('moveend', () => {
+        const center = map.getCenter();
         const latDiff = Math.abs(center.lat - lastFetchedPos.current.lat);
         const lngDiff = Math.abs(center.lng - lastFetchedPos.current.lng);
 
@@ -143,27 +164,35 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
         }
       });
 
-      mapRef.current.on('click', 'interactive-3d-buildings', (e) => {
-        if (e.features.length > 0) {
+      map.on('click', 'interactive-3d-buildings', (e) => {
+        if (e.features && e.features.length > 0) {
           const clickedId = e.features[0].id;
           if (clickedId !== undefined) {
-            // Logika zmiany zaznaczenia wizualnego
-            if (viewRef.current=="bussiness" && hoveredStateId.current !== null) {
-              mapRef.current?.setFeatureState(
-                { source: 'composite', sourceLayer: 'building', id: hoveredStateId.current },
-                { select: false }
-              );
-            }
-            
-            hoveredStateId.current = clickedId;
-            if(viewRef.current=="bussiness"){
-              mapRef.current?.setFeatureState(
-                { source: 'composite', sourceLayer: 'building', id: clickedId },
-                { select: true }
-              );
+            // Reset previous selection in business view
+            if (viewRef.current === "bussiness" && hoveredStateId.current !== null) {
+              try {
+                map.setFeatureState(
+                  { source: 'composite', sourceLayer: 'building', id: hoveredStateId.current },
+                  { select: false }
+                );
+              } catch (err) {
+                console.warn('Error resetting feature state:', err);
+              }
             }
 
-            // KLUCZOWA ZMIANA: używamy viewRef.current
+            hoveredStateId.current = clickedId;
+
+            if (viewRef.current === "bussiness") {
+              try {
+                map.setFeatureState(
+                  { source: 'composite', sourceLayer: 'building', id: clickedId },
+                  { select: true }
+                );
+              } catch (err) {
+                console.warn('Error setting feature state:', err);
+              }
+            }
+
             if (viewRef.current === "customer") {
               setSelected(clickedId);
               setPopupVisible(true);
@@ -172,43 +201,114 @@ const MapboxExample = ({ view = "customer" }) => { // Poprawiono destrukturyzacj
         }
       });
 
-      mapRef.current.on('mouseenter', 'interactive-3d-buildings', () => {
-        mapRef.current.getCanvas().style.cursor = 'pointer';
+      map.on('mouseenter', 'interactive-3d-buildings', () => {
+        map.getCanvas().style.cursor = 'pointer';
       });
-      mapRef.current.on('mouseleave', 'interactive-3d-buildings', () => {
-        mapRef.current.getCanvas().style.cursor = '';
+      map.on('mouseleave', 'interactive-3d-buildings', () => {
+        map.getCanvas().style.cursor = '';
       });
     });
 
-    return () => mapRef.current.remove();
-  }, []);
+    return () => {
+      setMapLoaded(false);
+      map.remove();
+    };
+  }, [handleBuildings]);
 
-  // Znalezienie biznesu na podstawie wybranego ID z mapy
   const selectedBusiness = nearbyBusinesses.find((b) => String(b.numer_na_mapie) === String(selected));
 
   return (
-    <div>
-      {viewState.lat}, {viewState.lng}
-      {/* Przekazujemy dane do profilu tylko jeśli coś wybrano */}
-      <Profil 
-        businessId={selectedBusiness ? selectedBusiness.userId : "0" } visible={selectedBusiness && popupVisible} 
-        onClose={()=>setPopupVisible(false)}
+    <Box className="map-page animate-fade-in" sx={{ position: 'relative' }}>
+      <Profil
+        businessId={selectedBusiness ? selectedBusiness.userId : "0"}
+        visible={selectedBusiness && popupVisible}
+        onClose={() => setPopupVisible(false)}
       />
-      
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
-        <input 
-          type="text" 
-          placeholder="Wpisz adres (np. Pałac Kultury)" 
+
+      {/* Search Form */}
+      <Box
+        component="form"
+        onSubmit={handleSearch}
+        sx={{
+          position: 'absolute',
+          top: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          display: 'flex',
+          gap: 1,
+          p: 1.5,
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: 3,
+          boxShadow: '0 4px 24px rgba(37, 99, 235, 0.15)',
+          width: { xs: '90%', sm: 'auto' },
+          maxWidth: 500,
+        }}
+      >
+        <TextField
+          placeholder="Wpisz adres (np. Pałac Kultury)"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          style={{ padding: '8px', width: '200px' }}
+          size="small"
+          sx={{
+            minWidth: { xs: 'auto', sm: 280 },
+            flex: 1,
+            '& .MuiOutlinedInput-root': {
+              background: 'white',
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
+          }}
         />
-        <button type="submit" style={{ padding: '8px', cursor: 'pointer' }}>
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          sx={{
+            px: 3,
+            whiteSpace: 'nowrap',
+          }}
+        >
           Szukaj
-        </button>
-      </form>
-      <div id="map" ref={mapContainerRef} style={{ height: '500px', width: '100%' }}></div>
-    </div>
+        </Button>
+      </Box>
+
+      {/* Coordinates Display */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 16,
+          left: 16,
+          zIndex: 1000,
+          background: 'rgba(15, 23, 42, 0.85)',
+          color: 'white',
+          px: 2,
+          py: 1,
+          borderRadius: 2,
+          fontSize: '0.75rem',
+          fontFamily: 'monospace',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        {viewState.lat}, {viewState.lng}
+      </Box>
+
+      {/* Map Container */}
+      <Box
+        ref={mapContainerRef}
+        sx={{
+          height: 'calc(100vh - 64px)',
+          width: '100%',
+          borderRadius: 0,
+        }}
+      />
+    </Box>
   );
 };
 
