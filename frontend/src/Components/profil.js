@@ -3,7 +3,7 @@ import './profil.css'; // Importuje styl z pliku o nazwie profil.css
 
 const API_URL = "http://localhost:5000";
 
-const Profil = ({ businessId, onClose }) => {
+const Profil = ({ businessId, onClose,visible }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -41,7 +41,7 @@ const Profil = ({ businessId, onClose }) => {
   if (!businessId) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} style={{ display: visible ? 'flex' : 'none' }}>
       <div className="business-card" onClick={(e) => e.stopPropagation()}>
         <button className="close-btn" onClick={onClose}>&times;</button>
 

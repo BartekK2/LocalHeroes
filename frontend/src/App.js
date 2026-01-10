@@ -17,6 +17,7 @@ import MapboxExample from './pages/Map';
 import Settings from './pages/Settings/Settings'; // <--- Dodano import Settings
 
 import "./App.css";
+import Profil from './components/profil';
 
 function App() {
   return (
@@ -38,6 +39,8 @@ function App() {
               
               {/* Ustawienia Profilu (Nowe) */}
               <Route path="/settings" element={<Settings />} />
+              <Route path="/profil" element={<Profil businessId={1} />} />
+
             </Routes>
           </BrowserRouter>
         </DataProvider>

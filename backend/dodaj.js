@@ -194,7 +194,7 @@ async function searchBusinessesFlow() {
 
         console.log(`\nZnaleziono ${data.length} firm:`);
         data.forEach(b => {
-            console.log(`- [${b.kategoria_biznesu || 'Inne'}] ${b.nazwa_firmy} (${b.miasto}) - ${b.distance_km} km stąd`);
+            console.log(b);
         });
 
     } catch (e) {
