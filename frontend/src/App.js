@@ -11,13 +11,14 @@ import { DataProvider } from './API/DataContext';
 import Navbar from './Navbar/Navbar';
 
 // Importy Stron
-import Home from './pages/Home/Home';
+import Home from './pages/Home/Home2';
 import Login from './pages/Login_Registration/Login';
 import MapboxExample from './pages/Map';
 import Settings from './pages/Settings/Settings'; // <--- Dodano import Settings
 
 import "./App.css";
 import Profil from './components/profil';
+import ReceiptUploader from './pages/Receipt';
 
 function App() {
   return (
@@ -40,6 +41,8 @@ function App() {
               {/* Ustawienia Profilu (Nowe) */}
               <Route path="/settings" element={<Settings />} />
               <Route path="/profil" element={<Profil businessId={1} />} />
+              <Route path="/receipt" element={<ReceiptUploader />} />
+
 
             </Routes>
           </BrowserRouter>
