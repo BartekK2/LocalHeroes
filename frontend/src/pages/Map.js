@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 const MapboxExample = () => {
   const mapContainerRef = useRef();
   const mapRef = useRef();
-  const TOKEN = 'pk.eyJ1IjoiYmFydGVrLWtyb2wyIiwiYSI6ImNtazhiMGlnODBjZnczZ3IycG94Nm56ZTYifQ._2cgxFgWPHqBU8tu3KP7kQ';
+  const TOKEN = 'pk.eyJ1IjoiYmFydGVrLWtyb2wyIiwiYSI6ImNtazhnaTEyZjBycXMzZHNteXN4MmdndDUifQ.8IGuNX51NroF5v7bpNjqsA';
   const hoveredStateId = useRef(null);
     const [address, setAddress] = useState('');
     const handleSearch = async (e) => {
