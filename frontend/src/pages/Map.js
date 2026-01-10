@@ -1,41 +1,32 @@
-import React, { useEffect, useRef,useState } from 'react';
+import React, { useEffect, useRef,useState,useContext } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { dataContext } from '../API/DataContext';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MapboxExample = () => {
+  const {fetchNearbyBusinesses,nearbyBusinesses, } = useContext(dataContext);
+
+  const handleBuildings = (lat,lng,radius) => {
+      fetchNearbyBusinesses(lat, lng, radius);
+  };
+  useEffect(() => {
+    console.log(nearbyBusinesses);
+    nearbyBusinesses.forEach(element => {
+      mapRef.current.setFeatureState(
+                  { source: 'composite', sourceLayer: 'building', id: element.numer_na_mapie },
+                  { select: true }
+                );
+    });
+  }, [nearbyBusinesses])
+  
+  
   const mapContainerRef = useRef();
   const [viewState, setViewState] = useState({
     lng: -74.0066,
     lat: 40.7135,
     zoom: 15.5,
   });
-
-  const lastTriggeredPos = useRef({
-    lng: -74.0066,
-    lat: 40.7135
-  });
-
-  useEffect(() => {
-    // Obliczamy różnicę (wartość bezwzględna, bo ruch może być w minus)
-    const latDiff = Math.abs(viewState.lat - lastTriggeredPos.current.lat);
-    const lngDiff = Math.abs(viewState.lng - lastTriggeredPos.current.lng);
-
-    // 3. Sprawdzamy, czy różnica przekroczyła próg 0.01
-    if (latDiff >= 0.01 || lngDiff >= 0.01) {
-      
-      // === TU WPISZ SWOJĄ AKCJĘ ===
-      console.log("Przesunięto o 0.01! Pobieram nowe dane...");
-      // ============================
-
-      // 4. WAŻNE: Aktualizujemy punkt odniesienia na obecną pozycję
-      // Dzięki temu akcja wykona się znowu dopiero po KOLEJNYM przesunięciu o 0.01
-      lastTriggeredPos.current = {
-        lat: viewState.lat,
-        lng: viewState.lng
-      };
-    }
-  }, [viewState]); // Uruchamiaj przy każdej zmianie viewState
-
+  const lastFetchedPos = useRef({ lng: 0, lat: 0 });
   const mapRef = useRef();
   const TOKEN = 'pk.eyJ1IjoiYmFydGVrLWtyb2wyIiwiYSI6ImNtazhneGV0dDFkZDYzZXNjODcyY290NncifQ.47breRLsCjVz1kQhiMIZyw';
   const hoveredStateId = useRef(null);
@@ -137,6 +128,20 @@ const MapboxExample = () => {
           labelLayerId // Wstawiamy pod napisy
         );
       }
+      mapRef.current.on('moveend', () => {
+        const center = mapRef.current.getCenter();
+        const latDiff = Math.abs(center.lat - lastFetchedPos.current.lat);
+        const lngDiff = Math.abs(center.lng - lastFetchedPos.current.lng);
+
+        if (latDiff > 0.01 || lngDiff > 0.01) {
+          console.log("✅ Mapa stanęła + duża zmiana. Wysyłam request!");
+          console.log(center.lat,center.lng);
+          lastFetchedPos.current = { lng: center.lng, lat: center.lat };
+          handleBuildings(center.lat,center.lng,100);
+        } else {
+          console.log("Mapa stanęła, ale zmiana była zbyt mała.");
+        }
+      });
 
       // 4. OBSŁUGA KLIKNIĘCIA (Zmiana koloru)
       mapRef.current.on('click', 'interactive-3d-buildings', (e) => {
@@ -146,6 +151,7 @@ const MapboxExample = () => {
           // Obsługa zmiany stanu tylko jeśli budynek ma ID
           if (clickedId !== undefined) {
               // Jeśli kliknęliśmy w inny budynek niż ten zaznaczony
+              console.log(clickedId);
               if (hoveredStateId.current !== clickedId) {
                 
                 // A. "Zgaś" poprzedni budynek (jeśli jakiś był)
@@ -178,6 +184,7 @@ const MapboxExample = () => {
       });
 
     });
+    handleBuildings(lastFetchedPos.current.lng,lastFetchedPos.current.lat,3);
 
     return () => mapRef.current.remove();
   }, []);

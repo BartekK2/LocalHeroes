@@ -100,7 +100,7 @@ const Business = db.define('Business', {
     liczba_opinii: { type: DataTypes.INTEGER, defaultValue: 0 },
     kategoria_biznesu: { type: DataTypes.STRING },
     numer_kontaktowy_biznes: { type: DataTypes.STRING },
-    numer_na_mapie: {type: DataTypes.INTEGER, defaultValue:0},
+    numer_na_mapie: {type: DataTypes.STRING},
     status_weryfikacji: { 
         type: DataTypes.ENUM('oczekujący', 'zweryfikowany', 'odrzucony'), 
         defaultValue: 'oczekujący' 
@@ -570,6 +570,7 @@ app.put('/profile', verifyToken, async (req, res) => {
                 kategoria_biznesu: req.body.kategoria_biznesu,
                 numer_kontaktowy_biznes: req.body.numer_kontaktowy_biznes,
                 link_do_strony_www: req.body.link_do_strony_www,
+                numer_na_mapie: req.body.numer_na_mapie
                 // opis: req.body.opis // Zakomentowane, bo pole "opis" nie istnieje w modelu Business
             });
         }

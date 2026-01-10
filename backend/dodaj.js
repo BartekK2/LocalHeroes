@@ -126,7 +126,7 @@ async function updateProfileFlow() {
     const lng = readline.questionFloat('Dlugosc geo (np. 21.0122): ');
     const kategoria = readline.question('Kategoria (np. Kawiarnia): ');
     const nr_budynku = readline.question('nr budynku: ');
-    const nr_mapa_budynku = readline.question('nr mapa: ');
+    const numer_na_mapie = readline.question('nr mapa: ');
 
 
     // Pobieramy obecny profil, żeby nie nadpisać reszty nullami (w uproszczeniu wysyłamy to co mamy)
@@ -139,7 +139,8 @@ async function updateProfileFlow() {
     if (!isNaN(lng)) body.dlugosc_geograficzna = lng;
     if (kategoria) body.kategoria_biznesu = kategoria;
     if (nr_budynku) body.numer_budynku = nr_budynku;
-    if (nr_mapa_budynku) body.numer_na_mapie = nr_budynku;
+    if (numer_na_mapie) body.numer_na_mapie = numer_na_mapie;
+    console.log(numer_na_mapie);
 
 
 
