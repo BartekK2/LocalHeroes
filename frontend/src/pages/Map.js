@@ -4,8 +4,40 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MapboxExample = () => {
   const mapContainerRef = useRef();
+  const [viewState, setViewState] = useState({
+    lng: -74.0066,
+    lat: 40.7135,
+    zoom: 15.5,
+  });
+
+  const lastTriggeredPos = useRef({
+    lng: -74.0066,
+    lat: 40.7135
+  });
+
+  useEffect(() => {
+    // Obliczamy różnicę (wartość bezwzględna, bo ruch może być w minus)
+    const latDiff = Math.abs(viewState.lat - lastTriggeredPos.current.lat);
+    const lngDiff = Math.abs(viewState.lng - lastTriggeredPos.current.lng);
+
+    // 3. Sprawdzamy, czy różnica przekroczyła próg 0.01
+    if (latDiff >= 0.01 || lngDiff >= 0.01) {
+      
+      // === TU WPISZ SWOJĄ AKCJĘ ===
+      console.log("Przesunięto o 0.01! Pobieram nowe dane...");
+      // ============================
+
+      // 4. WAŻNE: Aktualizujemy punkt odniesienia na obecną pozycję
+      // Dzięki temu akcja wykona się znowu dopiero po KOLEJNYM przesunięciu o 0.01
+      lastTriggeredPos.current = {
+        lat: viewState.lat,
+        lng: viewState.lng
+      };
+    }
+  }, [viewState]); // Uruchamiaj przy każdej zmianie viewState
+
   const mapRef = useRef();
-  const TOKEN = 'pk.eyJ1IjoiYmFydGVrLWtyb2wyIiwiYSI6ImNtazhnaTEyZjBycXMzZHNteXN4MmdndDUifQ.8IGuNX51NroF5v7bpNjqsA';
+  const TOKEN = 'pk.eyJ1IjoiYmFydGVrLWtyb2wyIiwiYSI6ImNtazhneGV0dDFkZDYzZXNjODcyY290NncifQ.47breRLsCjVz1kQhiMIZyw';
   const hoveredStateId = useRef(null);
     const [address, setAddress] = useState('');
     const handleSearch = async (e) => {
@@ -47,6 +79,17 @@ const MapboxExample = () => {
       bearing: -17.6,
       container: 'map',
       antialias: true
+    });
+    mapRef.current.on('move', () => {
+      const center = mapRef.current.getCenter();
+      const zoom = mapRef.current.getZoom();
+
+      // Aktualizujemy stan (zaokrąglamy do 4 miejsc po przecinku dla czytelności)
+      setViewState({
+        lng: center.lng.toFixed(4),
+        lat: center.lat.toFixed(4),
+        zoom: zoom.toFixed(2)
+      });
     });
 
     mapRef.current.on('style.load', () => {
@@ -138,8 +181,10 @@ const MapboxExample = () => {
 
     return () => mapRef.current.remove();
   }, []);
+  
 
-  return <div>
+  return (<div>
+    {viewState.lat}{viewState.lng}
     <form onSubmit={handleSearch} style={{ display: 'flex', gap: '5px' }}>
           <input 
             type="text" 
@@ -153,7 +198,7 @@ const MapboxExample = () => {
           </button>
         </form>
         <div id="map" ref={mapContainerRef} style={{ height: '500px' }}></div>
-    </div>;
+    </div>);
 };
 
 export default MapboxExample;

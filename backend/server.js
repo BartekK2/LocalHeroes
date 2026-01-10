@@ -100,7 +100,7 @@ const Business = db.define('Business', {
     liczba_opinii: { type: DataTypes.INTEGER, defaultValue: 0 },
     kategoria_biznesu: { type: DataTypes.STRING },
     numer_kontaktowy_biznes: { type: DataTypes.STRING },
-    
+    numer_na_mapie: {type: DataTypes.INTEGER, defaultValue:0},
     status_weryfikacji: { 
         type: DataTypes.ENUM('oczekujący', 'zweryfikowany', 'odrzucony'), 
         defaultValue: 'oczekujący' 
