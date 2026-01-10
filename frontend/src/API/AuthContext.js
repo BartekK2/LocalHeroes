@@ -1,10 +1,14 @@
+// PLIK: src/API/AuthContext.js
 import { createContext, useState, useEffect } from 'react';
+
+// Eksportujemy AuthContext jako named export (ważne!)
 export const AuthContext = createContext();
 
-
+// Eksportujemy AuthProvider jako named export (ważne!)
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const API_URL = "http://localhost:5000";
+    // Upewnij się, że port backendu jest poprawny (np. 5000)
+    const API_URL = "http://localhost:5000"; 
 
     useEffect(() => {
         const savedToken = localStorage.getItem('token');
@@ -23,9 +27,11 @@ export const AuthProvider = ({ children }) => {
                 body: JSON.stringify({ username, password })
             });
             
-            if (!response.ok) return { success: false, msg: "Bledne dane" };
-            
             const data = await response.json();
+            
+            if (!response.ok) {
+                return { success: false, msg: data.message || "Niepoprawny login lub hasło" };
+            }
             
             localStorage.setItem('token', data.token);
             localStorage.setItem('role', data.role);
@@ -34,20 +40,29 @@ export const AuthProvider = ({ children }) => {
             setUser(data);
             return { success: true };
         } catch (e) {
-            return { success: false, msg: "Blad polaaczenia z serwerem" };
+            console.error("Błąd połączenia z serwerem:", e);
+            return { success: false, msg: "Błąd połączenia z serwerem" };
         }
     };
 
-    const register = async (username, password) => {
+    const register = async (username, password, accountType = 'klient') => {
         try {
             const response = await fetch(`${API_URL}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password, accountType })
             });
-            return { success: response.ok };
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                return { success: false, msg: data.message || "Błąd podczas rejestracji" };
+            }
+            
+            return { success: true, data: data };
         } catch (e) {
-            return { success: false };
+            console.error("Błąd połączenia z serwerem:", e);
+            return { success: false, msg: "Błąd połączenia z serwerem" };
         }
     };
 

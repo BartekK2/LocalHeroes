@@ -1,35 +1,42 @@
-/*
-TODO:
-- dodaj przekierowanie gdzieś na sklep czy coś po uplywie kilku
-sekund od zalogowania zeby jeszcze byl widoczny komunikat
-
-- dodaj przekierowanie gdy uzytkownik jest juz zalogowany
-*/
-
-
-import { useState, useEffect, useContext} from "react";
-import { useLocation,useNavigate } from "react-router-dom";
+// PLIK: src/pages/Login_Registration/Login.js
+import { useState, useEffect, useContext } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   TextField,
   Button,
   Typography,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  FormLabel
 } from "@mui/material";
 
+// Upewnij się, że ścieżka do AuthContext jest poprawna
+// Jeśli Login.js jest w src/pages/Login_Registration/, to ../../API/AuthContext jest poprawne
 import { AuthContext } from "../../API/AuthContext";
 
 export default function AuthPage() {
-  const {user,login, register } = useContext(AuthContext);
+  const { user, login, register } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const initialAction = queryParams.get("action") || "login";
 
-  const [mode, setMode] = useState(initialAction); // "login" lub "registration"
+  const [mode, setMode] = useState(initialAction);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState("klient");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  useEffect(() => {
+    if (user && !isLoggingIn) {
+      navigate("/", { replace: true });
+    }
+  }, [user, navigate, isLoggingIn]);
 
   useEffect(() => {
     setMode(initialAction);
@@ -37,13 +44,9 @@ export default function AuthPage() {
     setSuccess("");
     setUsername("");
     setPassword("");
+    setAccountType("klient");
+    setIsLoggingIn(false);
   }, [initialAction]);
-
-  useEffect(() => {
-    if (user) {
-      navigate("/", { replace: true }); 
-    }
-  }, [user, navigate]);
 
   const handleSubmit = async () => {
     setError("");
@@ -55,30 +58,33 @@ export default function AuthPage() {
     }
 
     if (mode === "login") {
-      const result = await login(username, password); 
+      setIsLoggingIn(true);
+      const result = await login(username, password);
       
-      console.log("Wynik logowania:", result);
-
       if (result && result.success) {
-        setSuccess("Zalogowano pomyślnie!");
-        
+        setSuccess("Zalogowano pomyślnie! Za chwilę nastąpi przekierowanie...");
         setTimeout(() => {
-             navigate("/"); 
-        }, 2000);
+          navigate("/", { replace: true }); 
+        }, 2000); 
       } else {
         setError(result?.msg || "Niepoprawny login lub hasło!");
+        setIsLoggingIn(false);
       }
 
     } else if (mode === "registration") {
-      const result = await register(username, password);
+      const result = await register(username, password, accountType);
       
       if (result && result.success) {
-        setSuccess("Rejestracja udana! Możesz teraz zalogować się.");
-        setMode("login");
-        setUsername("");
-        setPassword("");
+        setSuccess(`Rejestracja konta typu "${accountType}" udana! Możesz się zalogować.`);
+        setTimeout(() => {
+            setMode("login");
+            setSuccess("");
+            setUsername("");
+            setPassword("");
+            setAccountType("klient");
+        }, 2000);
       } else {
-        setError("Użytkownik już istnieje!");
+        setError(result?.msg || "Użytkownik już istnieje!");
       }
     }
   };
@@ -89,6 +95,8 @@ export default function AuthPage() {
     setSuccess("");
     setUsername("");
     setPassword("");
+    setAccountType("klient");
+    setIsLoggingIn(false);
   };
 
   return (
@@ -121,6 +129,9 @@ export default function AuthPage() {
         label="Nazwa użytkownika"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
+        onKeyPress={(e) => {
+          if (e.key === 'Enter') handleSubmit();
+        }}
         fullWidth
         sx={{ maxWidth: 400 }}
       />
@@ -129,9 +140,28 @@ export default function AuthPage() {
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        onKeyPress={(e) => {
+          if (e.key === 'Enter') handleSubmit();
+        }}
         fullWidth
         sx={{ maxWidth: 400 }}
       />
+
+      {mode === "registration" && (
+        <FormControl component="fieldset" sx={{ mt: 1 }}>
+          <FormLabel component="legend" sx={{ fontSize: '0.9rem' }}>Wybierz typ konta:</FormLabel>
+          <RadioGroup
+            row
+            aria-label="account-type"
+            name="account-type"
+            value={accountType}
+            onChange={(e) => setAccountType(e.target.value)}
+          >
+            <FormControlLabel value="klient" control={<Radio />} label="Klient" />
+            <FormControlLabel value="biznes" control={<Radio />} label="Biznes (Sklep)" />
+          </RadioGroup>
+        </FormControl>
+      )}
 
       {error && (
         <Typography color="error" sx={{ mt: 1 }}>
@@ -139,7 +169,7 @@ export default function AuthPage() {
         </Typography>
       )}
       {success && (
-        <Typography color="success.main" sx={{ mt: 1 }}>
+        <Typography color="success.main" sx={{ mt: 1, textAlign: 'center' }}>
           {success}
         </Typography>
       )}
@@ -148,6 +178,7 @@ export default function AuthPage() {
         variant="contained"
         color="primary"
         onClick={handleSubmit}
+        disabled={!!success} 
         sx={{ mt: 2, maxWidth: 400 }}
       >
         {mode === "login" ? "Zaloguj się" : "Zarejestruj się"}

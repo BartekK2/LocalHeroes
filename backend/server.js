@@ -12,14 +12,6 @@ app.use(cors());
 const db = new Sequelize({ dialect: 'sqlite', storage: './baza.sqlite', logging: false });
 
 // --- FUNKCJA DO OBLICZANIA ODLEGŁOŚCI HAVERSINE ---
-/**
- * Oblicza odległość Haversine między dwoma punktami lat/lng w km
- * @param {number} lat1 - szerokość geograficzna pierwszego punktu
- * @param {number} lng1 - długość geograficzna pierwszego punktu
- * @param {number} lat2 - szerokość geograficzna drugiego punktu
- * @param {number} lng2 - długość geograficzna drugiego punktu
- * @returns {number} odległość w km
- */
 const haversineDistance = (lat1, lng1, lat2, lng2) => {
     const R = 6371; // Promień Ziemi w km
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -32,22 +24,10 @@ const haversineDistance = (lat1, lng1, lat2, lng2) => {
     return R * c;
 };
 
-/**
- * Wyszukuje biznesy w promieniu od danego punktu używając bounding box
- * Najpierw filtruje po bounding box w SQL, potem dokładnie po Haversine w JS
- * @param {number} lat - szerokość geograficzna punktu startowego
- * @param {number} lng - długość geograficzna punktu startowego
- * @param {number} radiusKm - promień w km
- * @returns {Promise<Array>} lista biznesów w promieniu z odległością (distance_km)
- */
 const findBusinessesInRadius = async (lat, lng, radiusKm) => {
-    // Oblicz bounding box (kwadrat wokół punktu)
-    // 1 stopień szerokości ≈ 111 km
-    // 1 stopień długości ≈ 70 km (dla Polski ~52°N)
     const latDelta = radiusKm / 111;
-    const lngDelta = radiusKm / 70; // Approximation for Poland
+    const lngDelta = radiusKm / 70; 
     
-    // Znajdź kandydatów w bounding box (szybkie filtrowanie SQL)
     const candidates = await Business.findAll({
         where: {
             szerokosc_geograficzna: { 
@@ -61,7 +41,6 @@ const findBusinessesInRadius = async (lat, lng, radiusKm) => {
         }
     });
     
-    // Dokładne filtrowanie i sortowanie po Haversine distance
     return candidates
         .map(b => ({ 
             ...b.toJSON(), 
@@ -90,7 +69,6 @@ const Customer = db.define('Customer', {
     numer_telefonu: { type: DataTypes.STRING },
     data_urodzenia: { type: DataTypes.DATEONLY },
     
-    // System lojalnościowy
     punkty_aktualne: { type: DataTypes.INTEGER, defaultValue: 0 },
     punkty_suma_historyczna: { type: DataTypes.INTEGER, defaultValue: 0 },
     kod_polecenia: { type: DataTypes.STRING, unique: true },
@@ -109,24 +87,20 @@ const Business = db.define('Business', {
     nip: { type: DataTypes.STRING, unique: true },
     regon: { type: DataTypes.STRING },
     
-    // Adres
     miasto: { type: DataTypes.STRING },
     ulica: { type: DataTypes.STRING },
     numer_budynku: { type: DataTypes.STRING },
     kod_pocztowy: { type: DataTypes.STRING },
     
-    // Lokalizacja GPS
     szerokosc_geograficzna: { type: DataTypes.FLOAT },
     dlugosc_geograficzna: { type: DataTypes.FLOAT },
     
-    // Statystyki i info
     data_rozpoczecia_dzialalnosci: { type: DataTypes.DATEONLY },
     srednia_ocena: { type: DataTypes.FLOAT, defaultValue: 0 },
     liczba_opinii: { type: DataTypes.INTEGER, defaultValue: 0 },
     kategoria_biznesu: { type: DataTypes.STRING },
     numer_kontaktowy_biznes: { type: DataTypes.STRING },
     
-    // Status i linki
     status_weryfikacji: { 
         type: DataTypes.ENUM('oczekujący', 'zweryfikowany', 'odrzucony'), 
         defaultValue: 'oczekujący' 
@@ -202,25 +176,15 @@ const verifyToken = (req, res, next) => {
     });
 };
 
-// --- FUNKCJE POMOCNICZE ---
-
-/**
- * Generuje unikalny kod kuponu używając crypto.randomBytes
- * Format: KOD-XXXXXXXX (hex string)
- * @returns {string} unikalny kod kuponu
- */
 const generateUniqueCouponCode = () => {
-    // Generuj 8 bajtów losowych danych i konwertuj na hex (16 znaków)
     const randomHex = crypto.randomBytes(8).toString('hex').toUpperCase();
     return `KOD-${randomHex}`;
 };
 
 // --- ENDPOINTY ---
 
-// Rejestracja z transakcją - tworzy User + Customer/Business
 app.post('/register', async (req, res) => {
     const t = await db.transaction();
-    
     try {
         const { username, password, accountType = 'klient' } = req.body;
         
@@ -234,22 +198,18 @@ app.post('/register', async (req, res) => {
             return res.status(400).json({ message: "accountType musi być 'klient' lub 'biznes'" });
         }
         
-        // Utwórz użytkownika
         const user = await User.create({
             login: username,
             password: password,
             accountType: accountType
         }, { transaction: t });
         
-        // Utwórz odpowiedni profil
         if (accountType === 'klient') {
-            await Customer.create({
-                userId: user.id
-            }, { transaction: t });
+            await Customer.create({ userId: user.id }, { transaction: t });
         } else if (accountType === 'biznes') {
-            await Business.create({
-                userId: user.id,
-                nazwa_firmy: req.body.nazwa_firmy || 'Nowa Firma'
+            await Business.create({ 
+                userId: user.id, 
+                nazwa_firmy: req.body.nazwa_firmy || 'Nowa Firma' 
             }, { transaction: t });
         }
         
@@ -258,11 +218,9 @@ app.post('/register', async (req, res) => {
         
     } catch (error) {
         await t.rollback();
-        
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({ message: "Użytkownik o takim loginie już istnieje" });
         }
-        
         console.error("Błąd podczas rejestracji:", error);
         res.status(500).json({ message: "Błąd podczas rejestracji" });
     }
@@ -271,10 +229,7 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
     try {
         const user = await User.findOne({ 
-            where: { 
-                login: req.body.username, 
-                password: req.body.password 
-            } 
+            where: { login: req.body.username, password: req.body.password } 
         });
         
         if (!user) {
@@ -289,7 +244,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Wyszukiwanie biznesów w promieniu
 app.get('/businesses/nearby', async (req, res) => {
     try {
         const lat = parseFloat(req.query.lat);
@@ -310,7 +264,6 @@ app.get('/businesses/nearby', async (req, res) => {
 
 // --- ENDPOINTY DLA SYSTEMU NAGRÓD ---
 
-// Dodawanie nagrody przez biznes
 app.post('/rewards', verifyToken, async (req, res) => {
     if (req.user.accountType !== 'biznes') {
         return res.status(403).json({ message: "Tylko firmy mogą dodawać nagrody" });
@@ -343,7 +296,6 @@ app.post('/rewards', verifyToken, async (req, res) => {
     }
 });
 
-// Pobieranie pojedynczej nagrody z detalami biznesu
 app.get('/rewards/:id', async (req, res) => {
     try {
         const reward = await Reward.findByPk(req.params.id, {
@@ -364,14 +316,10 @@ app.get('/rewards/:id', async (req, res) => {
     }
 });
 
-// Lista nagród danego biznesu
 app.get('/business/:id/rewards', async (req, res) => {
     try {
         const rewards = await Reward.findAll({
-            where: { 
-                businessId: parseInt(req.params.id),
-                czy_aktywna: true
-            },
+            where: { businessId: parseInt(req.params.id), czy_aktywna: true },
             order: [['koszt_punktowy', 'ASC']]
         });
         res.json(rewards);
@@ -381,14 +329,12 @@ app.get('/business/:id/rewards', async (req, res) => {
     }
 });
 
-// Odbieranie nagrody przez klienta (wymiana punktów na kupon)
 app.post('/rewards/claim', verifyToken, async (req, res) => {
     if (req.user.accountType !== 'klient') {
         return res.status(403).json({ message: "Tylko klient może odbierać nagrody" });
     }
 
     const t = await db.transaction();
-
     try {
         const { rewardId } = req.body;
         const customerId = req.user.id;
@@ -423,15 +369,13 @@ app.post('/rewards/claim', verifyToken, async (req, res) => {
             });
         }
 
-        // Odejmij punkty
         customer.punkty_aktualne -= reward.koszt_punktowy;
         customer.punkty_suma_historyczna += reward.koszt_punktowy;
         await customer.save({ transaction: t });
 
-        // Stwórz kupon
         const uniqueCode = generateUniqueCouponCode();
         
-        const claimed = await ClaimedReward.create({
+        await ClaimedReward.create({
             customerId: customerId,
             rewardId: rewardId,
             kod_unikalny: uniqueCode,
@@ -459,7 +403,6 @@ app.post('/rewards/claim', verifyToken, async (req, res) => {
     }
 });
 
-// Portfel klienta - lista odebranych nagród
 app.get('/rewards/my', verifyToken, async (req, res) => {
     if (req.user.accountType !== 'klient') {
         return res.status(403).json({ message: "Tylko klient może przeglądać swoje nagrody" });
@@ -467,7 +410,6 @@ app.get('/rewards/my', verifyToken, async (req, res) => {
 
     try {
         const status = req.query.status || 'do_wykorzystania';
-        
         const claimedRewards = await ClaimedReward.findAll({
             where: {
                 customerId: req.user.id,
@@ -508,7 +450,6 @@ app.get('/rewards/my', verifyToken, async (req, res) => {
     }
 });
 
-// Skasowanie kuponu przez sprzedawcę
 app.post('/rewards/redeem', verifyToken, async (req, res) => {
     if (req.user.accountType !== 'biznes') {
         return res.status(403).json({ message: "Tylko właściciel sklepu może skasować kupon" });
@@ -570,7 +511,77 @@ app.post('/rewards/redeem', verifyToken, async (req, res) => {
     }
 });
 
-// --- URUCHOMIENIE SERWERA ---
+// --- ENDPOINTY PROFILOWE (TUTAJ JEST ICH POPRAWNE MIEJSCE) ---
+
+// 1. Pobierz dane profilowe
+app.get('/profile', verifyToken, async (req, res) => {
+    try {
+        const { id, accountType } = req.user;
+        let profileData;
+
+        if (accountType === 'klient') {
+            profileData = await Customer.findByPk(id);
+        } else if (accountType === 'biznes') {
+            profileData = await Business.findByPk(id);
+        }
+
+        if (!profileData) {
+            return res.status(404).json({ message: "Profil nie znaleziony" });
+        }
+
+        res.json(profileData);
+    } catch (error) {
+        console.error("Błąd pobierania profilu:", error);
+        res.status(500).json({ message: "Błąd serwera" });
+    }
+});
+
+// 2. Aktualizuj dane profilowe
+app.put('/profile', verifyToken, async (req, res) => {
+    try {
+        const { id, accountType } = req.user;
+        let profile;
+
+        if (accountType === 'klient') {
+            profile = await Customer.findByPk(id);
+            if (!profile) return res.status(404).json({ message: "Profil nie istnieje" });
+
+            await profile.update({
+                imie: req.body.imie,
+                nazwisko: req.body.nazwisko,
+                numer_telefonu: req.body.numer_telefonu,
+                data_urodzenia: req.body.data_urodzenia
+            });
+
+        } else if (accountType === 'biznes') {
+            profile = await Business.findByPk(id);
+            if (!profile) return res.status(404).json({ message: "Profil nie istnieje" });
+
+            await profile.update({
+                nazwa_firmy: req.body.nazwa_firmy,
+                nip: req.body.nip,
+                regon: req.body.regon,
+                miasto: req.body.miasto,
+                ulica: req.body.ulica,
+                numer_budynku: req.body.numer_budynku,
+                kod_pocztowy: req.body.kod_pocztowy,
+                szerokosc_geograficzna: parseFloat(req.body.szerokosc_geograficzna),
+                dlugosc_geograficzna: parseFloat(req.body.dlugosc_geograficzna),
+                kategoria_biznesu: req.body.kategoria_biznesu,
+                numer_kontaktowy_biznes: req.body.numer_kontaktowy_biznes,
+                link_do_strony_www: req.body.link_do_strony_www,
+                // opis: req.body.opis // Zakomentowane, bo pole "opis" nie istnieje w modelu Business
+            });
+        }
+
+        res.json({ message: "Profil zaktualizowany", profile });
+    } catch (error) {
+        console.error("Błąd aktualizacji profilu:", error);
+        res.status(500).json({ message: "Błąd serwera podczas aktualizacji" });
+    }
+});
+
+// --- URUCHOMIENIE SERWERA (ZAWSZE NA SAMYM KOŃCU) ---
 
 app.listen(5000, async () => {
     try {
@@ -578,6 +589,6 @@ app.listen(5000, async () => {
         console.log("Serwer: http://localhost:5000");
     } catch (error) {
         console.error("Błąd podczas inicjalizacji bazy:", error.message);
-        throw error; // Nie odtwarzaj automatycznie bazy - bezpieczeństwo
+        throw error;
     }
 });
