@@ -14,8 +14,10 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
-  Tooltip
+  Tooltip,
+  Chip // <--- Dodano import Chip
 } from "@mui/material";
+import axios from "axios"; // <--- Dodano import axios do pobierania punktów
 
 // Ikonki
 import MenuIcon from "@mui/icons-material/Menu";
@@ -24,9 +26,10 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MapIcon from '@mui/icons-material/Map';
+import LoyaltyIcon from '@mui/icons-material/Loyalty'; // <--- Ikona do punktów
 
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react"; // <--- Dodano useEffect
 import { AuthContext } from "../API/AuthContext";
 
 const navLinks = [
@@ -37,9 +40,41 @@ const navLinks = [
 export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [anchorElUser, setAnchorElUser] = useState(null);
+  const [points, setPoints] = useState(null); // <--- Stan na punkty
+
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // --- NOWE: Pobieranie punktów ---
+  useEffect(() => {
+    const fetchPoints = async () => {
+      // Sprawdzamy, czy użytkownik jest zalogowany i czy jest klientem
+      // (zakładam, że w user.role masz typ konta, zgodnie z odpowiedzią z /login w server.js)
+      if (user && user.role === 'klient') {
+        try {
+          const token = localStorage.getItem('token'); 
+          if (!token) return;
+
+          const response = await axios.get('http://localhost:5000/profile', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (response.data && response.data.punkty_aktualne !== undefined) {
+            setPoints(response.data.punkty_aktualne);
+          }
+        } catch (error) {
+          console.error("Błąd pobierania punktów w navbarze:", error);
+        }
+      }
+    };
+
+    fetchPoints();
+    
+    // Opcjonalnie: Można dodać interwał lub nasłuchiwanie zdarzeń, 
+    // aby punkty odświeżały się po zeskanowaniu paragonu bez odświeżania strony.
+  }, [user, location.pathname]); // Odświeżamy przy zmianie strony (np. po wyjściu z paragonu)
+
 
   const handleOpenUserMenu = (event) => {
     setAnchorElUser(event.currentTarget);
@@ -52,6 +87,7 @@ export default function Navbar() {
   const handleLogout = () => {
     handleCloseUserMenu();
     logout();
+    setPoints(null); // Czyścimy punkty
     navigate('/login');
   };
 
@@ -65,6 +101,7 @@ export default function Navbar() {
         sx={{
           height: "64px",
           borderBottom: '1px solid rgba(99, 102, 241, 0.08)',
+          bgcolor: 'background.paper' // Zapewnia tło
         }}
       >
         <Toolbar sx={{ position: "relative", height: "100%" }}>
@@ -166,8 +203,29 @@ export default function Navbar() {
             ))}
           </Box>
 
-          {/* RIGHT: Login / Avatar Menu */}
-          <Box sx={{ ml: "auto" }}>
+          {/* RIGHT: Points / Login / Avatar Menu */}
+          <Box sx={{ ml: "auto", display: 'flex', alignItems: 'center', gap: 2 }}>
+            
+            {/* --- WYŚWIETLANIE PUNKTÓW (TYLKO DLA KLIENTA) --- */}
+            {user && user.role === 'klient' && points !== null && (
+               <Chip
+                 icon={<LoyaltyIcon sx={{ "&&": { color: "#b45309" } }} />} // Ciemniejszy złoty dla ikony
+                 label={`${points} pkt`}
+                 sx={{
+                   fontWeight: 700,
+                   background: 'linear-gradient(135deg, #fcd34d 0%, #fbbf24 100%)', // Złoty gradient
+                   color: '#78350f', // Ciemny brązowy tekst dla kontrastu
+                   border: '1px solid rgba(251, 191, 36, 0.5)',
+                   boxShadow: '0 2px 8px rgba(251, 191, 36, 0.4)',
+                   height: 32,
+                   '& .MuiChip-label': {
+                     px: 1.5
+                   },
+                   display: { xs: 'none', sm: 'flex' } // Ukryj na bardzo małych ekranach w toolbarze
+                 }}
+               />
+            )}
+
             {user ? (
               <Box sx={{ flexGrow: 0 }}>
                 <Tooltip title="Menu użytkownika" arrow>
@@ -218,6 +276,22 @@ export default function Navbar() {
                     <Typography variant="body1" fontWeight={600}>
                       {user.username}
                     </Typography>
+                    
+                    {/* Punkty w menu mobilnym (jeśli schowane w toolbarze) */}
+                    {user.role === 'klient' && points !== null && (
+                       <Box sx={{ 
+                         display: { xs: 'flex', sm: 'none' }, 
+                         alignItems: 'center', 
+                         mt: 1,
+                         gap: 1,
+                         color: '#b45309' 
+                       }}>
+                         <LoyaltyIcon fontSize="small" />
+                         <Typography variant="body2" fontWeight={700}>
+                           {points} pkt
+                         </Typography>
+                       </Box>
+                    )}
                   </Box>
 
                   <Divider sx={{ my: 0.5 }} />
@@ -311,6 +385,24 @@ export default function Navbar() {
           </Box>
 
           <Divider sx={{ borderColor: 'rgba(99, 102, 241, 0.1)' }} />
+          
+          {/* PUNKTY W DRAWERZE (Widoczne od razu w menu mobilnym) */}
+          {user && user.role === 'klient' && points !== null && (
+            <Box sx={{ m: 2, p: 2, bgcolor: '#fffbeb', borderRadius: '12px', border: '1px solid #fcd34d' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
+                Twój bilans
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                <LoyaltyIcon sx={{ color: '#d97706' }} />
+                <Typography variant="h5" fontWeight={700} color="#92400e">
+                  {points}
+                </Typography>
+                <Typography variant="body2" color="#b45309" sx={{ mt: 0.5 }}>
+                  pkt
+                </Typography>
+              </Box>
+            </Box>
+          )}
 
           <List sx={{ px: 1.5, py: 1 }}>
             {navLinks.map((link) => (
@@ -370,7 +462,7 @@ export default function Navbar() {
                 </ListItemButton>
 
                 <ListItemButton
-                  onClick={logout}
+                  onClick={handleLogout}
                   sx={{
                     borderRadius: '12px',
                     color: 'error.main',

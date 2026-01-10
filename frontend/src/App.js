@@ -11,7 +11,7 @@ import { DataProvider } from './API/DataContext';
 import Navbar from './Navbar/Navbar';
 
 // Importy Stron
-import Home from './pages/Home/Home2';
+import Home from './pages/Home/Home';
 import Login from './pages/Login_Registration/Login';
 import MapboxExample from './pages/Map';
 import Settings from './pages/Settings/Settings'; // <--- Dodano import Settings
