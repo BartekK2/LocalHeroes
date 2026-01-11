@@ -27,14 +27,28 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MapIcon from '@mui/icons-material/Map';
 import LoyaltyIcon from '@mui/icons-material/Loyalty'; // <--- Ikona do punktów
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'; // <--- Ikona do paragonów
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard'; // <--- Ikona do nagród
 
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useState, useContext, useEffect } from "react"; // <--- Dodano useEffect
+import { useState, useContext, useEffect, useCallback } from "react"; // <--- Dodano useCallback
 import { AuthContext } from "../API/AuthContext";
+import { dataContext } from "../API/DataContext"; // <--- Import DataContext
 
 const navLinks = [
   { label: "Strona główna", path: "/", icon: HomeIcon },
   { label: "Mapa", path: "/map", icon: MapIcon },
+];
+
+// Link widoczny tylko dla klientów
+const customerOnlyLinks = [
+  { label: "Paragony", path: "/receipt", icon: ReceiptLongIcon },
+  { label: "Moje nagrody", path: "/my-rewards", icon: CardGiftcardIcon },
+];
+
+// Link widoczny tylko dla biznesu
+const businessOnlyLinks = [
+  { label: "Dodaj nagrodę", path: "/add-reward", icon: CardGiftcardIcon },
 ];
 
 export default function Navbar() {
@@ -43,37 +57,41 @@ export default function Navbar() {
   const [points, setPoints] = useState(null); // <--- Stan na punkty
 
   const { user, logout } = useContext(AuthContext);
+  const { setPointsRefreshCallback } = useContext(dataContext); // <--- Import refresh callback
   const navigate = useNavigate();
   const location = useLocation();
 
-  // --- NOWE: Pobieranie punktów ---
-  useEffect(() => {
-    const fetchPoints = async () => {
-      // Sprawdzamy, czy użytkownik jest zalogowany i czy jest klientem
-      // (zakładam, że w user.role masz typ konta, zgodnie z odpowiedzią z /login w server.js)
-      if (user && user.role === 'klient') {
-        try {
-          const token = localStorage.getItem('token'); 
-          if (!token) return;
+  // Funkcja do pobierania punktów - memoized
+  const fetchPoints = useCallback(async () => {
+    if (user && user.role === 'klient') {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
 
-          const response = await axios.get('http://localhost:5000/profile', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+        const response = await axios.get('http://localhost:5000/profile', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
-          if (response.data && response.data.punkty_aktualne !== undefined) {
-            setPoints(response.data.punkty_aktualne);
-          }
-        } catch (error) {
-          console.error("Błąd pobierania punktów w navbarze:", error);
+        if (response.data && response.data.punkty_aktualne !== undefined) {
+          setPoints(response.data.punkty_aktualne);
         }
+      } catch (error) {
+        console.error("Błąd pobierania punktów w navbarze:", error);
       }
-    };
+    }
+  }, [user]);
 
+  // Rejestracja callbacka do odświeżania punktów
+  useEffect(() => {
+    if (setPointsRefreshCallback) {
+      setPointsRefreshCallback(fetchPoints);
+    }
+  }, [setPointsRefreshCallback, fetchPoints]);
+
+  // --- Pobieranie punktów przy zmianie strony ---
+  useEffect(() => {
     fetchPoints();
-    
-    // Opcjonalnie: Można dodać interwał lub nasłuchiwanie zdarzeń, 
-    // aby punkty odświeżały się po zeskanowaniu paragonu bez odświeżania strony.
-  }, [user, location.pathname]); // Odświeżamy przy zmianie strony (np. po wyjściu z paragonu)
+  }, [fetchPoints, location.pathname]);
 
 
   const handleOpenUserMenu = (event) => {
@@ -201,29 +219,81 @@ export default function Navbar() {
                 {link.label}
               </Button>
             ))}
+
+            {/* Paragony - tylko dla klientów */}
+            {user && user.role === 'klient' && customerOnlyLinks.map((link) => (
+              <Button
+                key={link.label}
+                component={Link}
+                to={link.path}
+                sx={{
+                  color: isActive(link.path) ? 'secondary.main' : 'text.secondary',
+                  fontWeight: isActive(link.path) ? 600 : 500,
+                  px: 2,
+                  py: 1,
+                  borderRadius: '10px',
+                  backgroundColor: isActive(link.path) ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                    color: 'secondary.main',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                {link.icon && <link.icon sx={{ mr: 0.75, fontSize: 20 }} />}
+                {link.label}
+              </Button>
+            ))}
+
+            {/* Dodaj nagrodę - tylko dla biznesu */}
+            {user && user.role === 'biznes' && businessOnlyLinks.map((link) => (
+              <Button
+                key={link.label}
+                component={Link}
+                to={link.path}
+                sx={{
+                  color: isActive(link.path) ? 'secondary.main' : 'text.secondary',
+                  fontWeight: isActive(link.path) ? 600 : 500,
+                  px: 2,
+                  py: 1,
+                  borderRadius: '10px',
+                  backgroundColor: isActive(link.path) ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                    color: 'secondary.main',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                {link.icon && <link.icon sx={{ mr: 0.75, fontSize: 20 }} />}
+                {link.label}
+              </Button>
+            ))}
           </Box>
 
           {/* RIGHT: Points / Login / Avatar Menu */}
           <Box sx={{ ml: "auto", display: 'flex', alignItems: 'center', gap: 2 }}>
-            
+
             {/* --- WYŚWIETLANIE PUNKTÓW (TYLKO DLA KLIENTA) --- */}
             {user && user.role === 'klient' && points !== null && (
-               <Chip
-                 icon={<LoyaltyIcon sx={{ "&&": { color: "#b45309" } }} />} // Ciemniejszy złoty dla ikony
-                 label={`${points} pkt`}
-                 sx={{
-                   fontWeight: 700,
-                   background: 'linear-gradient(135deg, #fcd34d 0%, #fbbf24 100%)', // Złoty gradient
-                   color: '#78350f', // Ciemny brązowy tekst dla kontrastu
-                   border: '1px solid rgba(251, 191, 36, 0.5)',
-                   boxShadow: '0 2px 8px rgba(251, 191, 36, 0.4)',
-                   height: 32,
-                   '& .MuiChip-label': {
-                     px: 1.5
-                   },
-                   display: { xs: 'none', sm: 'flex' } // Ukryj na bardzo małych ekranach w toolbarze
-                 }}
-               />
+              <Chip
+                icon={<LoyaltyIcon sx={{ "&&": { color: "#b45309" } }} />} // Ciemniejszy złoty dla ikony
+                label={`${points} pkt`}
+                sx={{
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #fcd34d 0%, #fbbf24 100%)', // Złoty gradient
+                  color: '#78350f', // Ciemny brązowy tekst dla kontrastu
+                  border: '1px solid rgba(251, 191, 36, 0.5)',
+                  boxShadow: '0 2px 8px rgba(251, 191, 36, 0.4)',
+                  height: 32,
+                  '& .MuiChip-label': {
+                    px: 1.5
+                  },
+                  display: { xs: 'none', sm: 'flex' } // Ukryj na bardzo małych ekranach w toolbarze
+                }}
+              />
             )}
 
             {user ? (
@@ -276,21 +346,21 @@ export default function Navbar() {
                     <Typography variant="body1" fontWeight={600}>
                       {user.username}
                     </Typography>
-                    
+
                     {/* Punkty w menu mobilnym (jeśli schowane w toolbarze) */}
                     {user.role === 'klient' && points !== null && (
-                       <Box sx={{ 
-                         display: { xs: 'flex', sm: 'none' }, 
-                         alignItems: 'center', 
-                         mt: 1,
-                         gap: 1,
-                         color: '#b45309' 
-                       }}>
-                         <LoyaltyIcon fontSize="small" />
-                         <Typography variant="body2" fontWeight={700}>
-                           {points} pkt
-                         </Typography>
-                       </Box>
+                      <Box sx={{
+                        display: { xs: 'flex', sm: 'none' },
+                        alignItems: 'center',
+                        mt: 1,
+                        gap: 1,
+                        color: '#b45309'
+                      }}>
+                        <LoyaltyIcon fontSize="small" />
+                        <Typography variant="body2" fontWeight={700}>
+                          {points} pkt
+                        </Typography>
+                      </Box>
                     )}
                   </Box>
 
@@ -385,7 +455,7 @@ export default function Navbar() {
           </Box>
 
           <Divider sx={{ borderColor: 'rgba(99, 102, 241, 0.1)' }} />
-          
+
           {/* PUNKTY W DRAWERZE (Widoczne od razu w menu mobilnym) */}
           {user && user.role === 'klient' && points !== null && (
             <Box sx={{ m: 2, p: 2, bgcolor: '#fffbeb', borderRadius: '12px', border: '1px solid #fcd34d' }}>

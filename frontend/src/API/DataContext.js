@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
 
 export const dataContext = createContext();
 
@@ -8,26 +8,41 @@ export const DataProvider = ({ children }) => {
     // Stany do przechowywania danych i statusu żądania
     const [nearbyBusinesses, setNearbyBusinesses] = useState([]);
 
-    async function fetchNearbyBusinesses(lat,lng,radius) {
+    // Callback for refreshing points in Navbar
+    const pointsRefreshCallbackRef = useRef(null);
+
+    // Function to trigger points refresh
+    const refreshPoints = useCallback(() => {
+        if (pointsRefreshCallbackRef.current) {
+            pointsRefreshCallbackRef.current();
+        }
+    }, []);
+
+    // Function for Navbar to register its refresh callback
+    const setPointsRefreshCallback = useCallback((callback) => {
+        pointsRefreshCallbackRef.current = callback;
+    }, []);
+
+    async function fetchNearbyBusinesses(lat, lng, radius) {
         console.log("\n>>> SZUKANIE W POBLIŻU <<<");
         try {
             const res = await fetch(`${API_URL}/businesses/nearby?lat=${parseFloat(lat)}&lng=${[parseFloat(lng)]}&radius=${parseFloat(radius)}`);
             const data = await res.json();
-            
+
             if (!res.ok) {
                 console.log("Błąd:", data.message);
                 return;
             }
-    
+
             console.log(`\nZnaleziono ${data.length} firm:`);
             data.forEach(b => {
                 console.log(`- [${b.kategoria_biznesu || 'Inne'}] ${b.nazwa_firmy} (${b.miasto}) - ${b.distance_km} km stąd`);
             });
-             setNearbyBusinesses(data);
-            
+            setNearbyBusinesses(data);
+
             // Możemy też zwrócić dane, jeśli komponent chce ich użyć od razu w .then()
-            return data; 
-    
+            return data;
+
         } catch (e) {
             console.log("Błąd pobierania:", e.message);
         }
@@ -58,10 +73,12 @@ export const DataProvider = ({ children }) => {
     };
 
     return (
-        <dataContext.Provider value={{ 
+        <dataContext.Provider value={{
             fetchNearbyBusinesses, // Funkcja do wywołania
             getPointsBalance,
             nearbyBusinesses,      // Wyniki wyszukiwania
+            refreshPoints,         // Trigger points refresh
+            setPointsRefreshCallback, // Register refresh callback
         }}>
             {children}
         </dataContext.Provider>

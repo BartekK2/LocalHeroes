@@ -16,7 +16,7 @@ const haversineDistance = (lat1, lng1, lat2, lng2) => {
     const R = 6371; // Promień Ziemi w km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = 
+    const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLng / 2) * Math.sin(dLng / 2);
@@ -26,24 +26,24 @@ const haversineDistance = (lat1, lng1, lat2, lng2) => {
 
 const findBusinessesInRadius = async (lat, lng, radiusKm) => {
     const latDelta = radiusKm / 111;
-    const lngDelta = radiusKm / 70; 
-    
+    const lngDelta = radiusKm / 70;
+
     const candidates = await Business.findAll({
         where: {
-            szerokosc_geograficzna: { 
+            szerokosc_geograficzna: {
                 [Op.between]: [lat - latDelta, lat + latDelta],
                 [Op.ne]: null
             },
-            dlugosc_geograficzna: { 
+            dlugosc_geograficzna: {
                 [Op.between]: [lng - lngDelta, lng + lngDelta],
                 [Op.ne]: null
             }
         }
     });
-    
+
     return candidates
-        .map(b => ({ 
-            ...b.toJSON(), 
+        .map(b => ({
+            ...b.toJSON(),
             distance_km: Math.round(haversineDistance(lat, lng, b.szerokosc_geograficzna, b.dlugosc_geograficzna) * 100) / 100
         }))
         .filter(b => b.distance_km <= radiusKm)
@@ -59,51 +59,51 @@ const User = db.define('User', {
 });
 
 const Customer = db.define('Customer', {
-    userId: { 
-        type: DataTypes.INTEGER, 
+    userId: {
+        type: DataTypes.INTEGER,
         primaryKey: true,
-        references: { model: 'Users', key: 'id' } 
+        references: { model: 'Users', key: 'id' }
     },
     imie: { type: DataTypes.STRING },
     nazwisko: { type: DataTypes.STRING },
     numer_telefonu: { type: DataTypes.STRING },
     data_urodzenia: { type: DataTypes.DATEONLY },
-    
+
     punkty_aktualne: { type: DataTypes.INTEGER, defaultValue: 0 },
     punkty_suma_historyczna: { type: DataTypes.INTEGER, defaultValue: 0 },
     kod_polecenia: { type: DataTypes.STRING, unique: true },
     numer_karty_lojalnosciowej: { type: DataTypes.STRING, unique: true },
-    
+
     data_utworzenia_profilu: { type: DataTypes.DATE, defaultValue: Sequelize.NOW }
 });
 
 const Business = db.define('Business', {
-    userId: { 
-        type: DataTypes.INTEGER, 
+    userId: {
+        type: DataTypes.INTEGER,
         primaryKey: true,
-        references: { model: 'Users', key: 'id' } 
+        references: { model: 'Users', key: 'id' }
     },
     nazwa_firmy: { type: DataTypes.STRING, allowNull: false },
     nip: { type: DataTypes.STRING, unique: true },
     regon: { type: DataTypes.STRING },
-    
+
     miasto: { type: DataTypes.STRING },
     ulica: { type: DataTypes.STRING },
     numer_budynku: { type: DataTypes.STRING },
     kod_pocztowy: { type: DataTypes.STRING },
-    
+
     szerokosc_geograficzna: { type: DataTypes.FLOAT },
     dlugosc_geograficzna: { type: DataTypes.FLOAT },
-    
+
     data_rozpoczecia_dzialalnosci: { type: DataTypes.DATEONLY },
     srednia_ocena: { type: DataTypes.FLOAT, defaultValue: 0 },
     liczba_opinii: { type: DataTypes.INTEGER, defaultValue: 0 },
     kategoria_biznesu: { type: DataTypes.STRING },
     numer_kontaktowy_biznes: { type: DataTypes.STRING },
-    numer_na_mapie: {type: DataTypes.STRING},
-    status_weryfikacji: { 
-        type: DataTypes.ENUM('oczekujący', 'zweryfikowany', 'odrzucony'), 
-        defaultValue: 'oczekujący' 
+    numer_na_mapie: { type: DataTypes.STRING },
+    status_weryfikacji: {
+        type: DataTypes.ENUM('oczekujący', 'zweryfikowany', 'odrzucony'),
+        defaultValue: 'oczekujący'
     },
     link_do_strony_www: { type: DataTypes.STRING }
 });
@@ -117,9 +117,9 @@ const Reward = db.define('Reward', {
     nazwa: { type: DataTypes.STRING, allowNull: false },
     opis: { type: DataTypes.STRING },
     koszt_punktowy: { type: DataTypes.INTEGER, allowNull: false },
-    typ: { 
-        type: DataTypes.ENUM('produkt', 'usługa', 'rabat_procentowy', 'rabat_kwotowy'), 
-        defaultValue: 'produkt' 
+    typ: {
+        type: DataTypes.ENUM('produkt', 'usługa', 'rabat_procentowy', 'rabat_kwotowy'),
+        defaultValue: 'produkt'
     },
     wartosc_rabatu: { type: DataTypes.FLOAT },
     czy_aktywna: { type: DataTypes.BOOLEAN, defaultValue: true }
@@ -137,9 +137,9 @@ const ClaimedReward = db.define('ClaimedReward', {
         references: { model: 'Rewards', key: 'id' }
     },
     kod_unikalny: { type: DataTypes.STRING, unique: true, allowNull: false },
-    status: { 
-        type: DataTypes.ENUM('do_wykorzystania', 'wykorzystany', 'anulowany'), 
-        defaultValue: 'do_wykorzystania' 
+    status: {
+        type: DataTypes.ENUM('do_wykorzystania', 'wykorzystany', 'anulowany'),
+        defaultValue: 'do_wykorzystania'
     },
     data_odebrania: { type: DataTypes.DATE, defaultValue: Sequelize.NOW },
     data_wykorzystania: { type: DataTypes.DATE },
@@ -168,7 +168,7 @@ ClaimedReward.belongsTo(Reward, { foreignKey: 'rewardId' });
 const verifyToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.sendStatus(401);
-    
+
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) return res.sendStatus(403);
         req.user = decoded;
@@ -187,35 +187,35 @@ app.post('/register', async (req, res) => {
     const t = await db.transaction();
     try {
         const { username, password, accountType = 'klient' } = req.body;
-        
+
         if (!username || !password) {
             await t.rollback();
             return res.status(400).json({ message: "Wymagane pola: username, password" });
         }
-        
+
         if (accountType !== 'klient' && accountType !== 'biznes') {
             await t.rollback();
             return res.status(400).json({ message: "accountType musi być 'klient' lub 'biznes'" });
         }
-        
+
         const user = await User.create({
             login: username,
             password: password,
             accountType: accountType
         }, { transaction: t });
-        
+
         if (accountType === 'klient') {
             await Customer.create({ userId: user.id }, { transaction: t });
         } else if (accountType === 'biznes') {
-            await Business.create({ 
-                userId: user.id, 
-                nazwa_firmy: req.body.nazwa_firmy || 'Nowa Firma' 
+            await Business.create({
+                userId: user.id,
+                nazwa_firmy: req.body.nazwa_firmy || 'Nowa Firma'
             }, { transaction: t });
         }
-        
+
         await t.commit();
         res.json({ message: "OK", userId: user.id, accountType: user.accountType });
-        
+
     } catch (error) {
         await t.rollback();
         if (error.name === 'SequelizeUniqueConstraintError') {
@@ -228,14 +228,14 @@ app.post('/register', async (req, res) => {
 
 app.post('/login', async (req, res) => {
     try {
-        const user = await User.findOne({ 
-            where: { login: req.body.username, password: req.body.password } 
+        const user = await User.findOne({
+            where: { login: req.body.username, password: req.body.password }
         });
-        
+
         if (!user) {
             return res.status(401).json({ message: "Błąd logowania" });
         }
-        
+
         const token = jwt.sign({ id: user.id, accountType: user.accountType }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ token, role: user.accountType, username: user.login });
     } catch (error) {
@@ -249,11 +249,11 @@ app.get('/businesses/nearby', async (req, res) => {
         const lat = parseFloat(req.query.lat);
         const lng = parseFloat(req.query.lng);
         const radius = parseFloat(req.query.radius) || 5;
-        
+
         if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
             return res.status(400).json({ message: "Wymagane parametry: lat i lng" });
         }
-        
+
         const businesses = await findBusinessesInRadius(lat, lng, radius);
         res.json(businesses);
     } catch (error) {
@@ -304,11 +304,11 @@ app.get('/rewards/:id', async (req, res) => {
                 attributes: ['nazwa_firmy', 'miasto', 'ulica', 'numer_budynku', 'kod_pocztowy', 'numer_kontaktowy_biznes', 'status_weryfikacji']
             }]
         });
-        
+
         if (!reward) {
             return res.status(404).json({ message: "Nagroda nie została znaleziona" });
         }
-        
+
         res.json(reward);
     } catch (error) {
         console.error("Błąd pobierania nagrody:", error);
@@ -326,6 +326,32 @@ app.get('/business/:id/rewards', async (req, res) => {
     } catch (error) {
         console.error("Błąd pobierania nagród:", error);
         res.status(500).json({ message: "Błąd pobierania nagród" });
+    }
+});
+
+// Endpoint dla odebranych nagród klienta
+app.get('/rewards/my', verifyToken, async (req, res) => {
+    if (req.user.accountType !== 'klient') {
+        return res.status(403).json({ message: "Tylko klienci mogą przeglądać odebrane nagrody" });
+    }
+
+    try {
+        const claimedRewards = await ClaimedReward.findAll({
+            where: { customerId: req.user.id },
+            include: [{
+                model: Reward,
+                include: [{
+                    model: Business,
+                    attributes: ['nazwa_firmy', 'miasto', 'ulica']
+                }]
+            }],
+            order: [['data_odebrania', 'DESC']]
+        });
+
+        res.json(claimedRewards);
+    } catch (error) {
+        console.error("Błąd pobierania odebranych nagród:", error);
+        res.status(500).json({ message: "Błąd pobierania odebranych nagród" });
     }
 });
 
@@ -350,7 +376,7 @@ app.post('/rewards/claim', verifyToken, async (req, res) => {
             return res.status(404).json({ message: "Profil klienta nie istnieje" });
         }
 
-        const reward = await Reward.findByPk(rewardId, { 
+        const reward = await Reward.findByPk(rewardId, {
             transaction: t,
             include: [{ model: Business, attributes: ['nazwa_firmy'] }]
         });
@@ -362,7 +388,7 @@ app.post('/rewards/claim', verifyToken, async (req, res) => {
 
         if (customer.punkty_aktualne < reward.koszt_punktowy) {
             await t.rollback();
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: "Masz za mało punktów!",
                 wymagane: reward.koszt_punktowy,
                 masz: customer.punkty_aktualne
@@ -374,7 +400,7 @@ app.post('/rewards/claim', verifyToken, async (req, res) => {
         await customer.save({ transaction: t });
 
         const uniqueCode = generateUniqueCouponCode();
-        
+
         await ClaimedReward.create({
             customerId: customerId,
             rewardId: rewardId,
@@ -384,16 +410,16 @@ app.post('/rewards/claim', verifyToken, async (req, res) => {
         }, { transaction: t });
 
         await t.commit();
-        
-        res.json({ 
-            message: "Sukces! Nagroda odebrana.", 
+
+        res.json({
+            message: "Sukces! Nagroda odebrana.",
             kupon: {
                 kod: uniqueCode,
                 nagroda: reward.nazwa,
                 sklep: reward.Business?.nazwa_firmy || 'Nieznany sklep',
                 status: 'do_wykorzystania'
             },
-            pozostale_punkty: customer.punkty_aktualne 
+            pozostale_punkty: customer.punkty_aktualne
         });
 
     } catch (error) {
@@ -590,8 +616,8 @@ app.get('/public/business/:id', async (req, res) => {
         // 1. Pobierz dane firmy
         const business = await Business.findByPk(businessId, {
             attributes: [
-                'nazwa_firmy', 'kategoria_biznesu', 'miasto', 'ulica', 
-                'numer_budynku', 'srednia_ocena', 'liczba_opinii', 
+                'nazwa_firmy', 'kategoria_biznesu', 'miasto', 'ulica',
+                'numer_budynku', 'srednia_ocena', 'liczba_opinii',
                 'numer_kontaktowy_biznes', 'link_do_strony_www', 'numer_na_mapie'
             ]
         });
@@ -602,9 +628,9 @@ app.get('/public/business/:id', async (req, res) => {
 
         // 2. Pobierz aktywne nagrody dla tej firmy
         const rewards = await Reward.findAll({
-            where: { 
+            where: {
                 businessId: businessId,
-                czy_aktywna: true 
+                czy_aktywna: true
             },
             attributes: ['id', 'nazwa', 'opis', 'koszt_punktowy', 'typ', 'wartosc_rabatu']
         });

@@ -19,6 +19,8 @@ import Settings from './pages/Settings/Settings'; // <--- Dodano import Settings
 import "./App.css";
 import Profil from './components/profil';
 import ReceiptUploader from './pages/Receipt';
+import AddReward from './pages/AddReward'; // <--- Import AddReward
+import MyRewards from './pages/MyRewards'; // <--- Import MyRewards
 
 function App() {
   return (
@@ -27,21 +29,23 @@ function App() {
       <AuthProvider>
         <DataProvider>
           <BrowserRouter>
-            <Navbar/>
+            <Navbar />
             <Routes>
               {/* Strona Główna */}
               <Route path="/" element={<Home />} />
-              
+
               {/* Logowanie i Rejestracja */}
               <Route path="/login" element={<Login />} />
-              
+
               {/* Mapa */}
               <Route path="/map" element={<MapboxExample />} />
-              
+
               {/* Ustawienia Profilu (Nowe) */}
               <Route path="/settings" element={<Settings />} />
               <Route path="/profil" element={<Profil businessId={1} />} />
               <Route path="/receipt" element={<ReceiptUploader />} />
+              <Route path="/add-reward" element={<AddReward />} /> {/* Nowa trasa */}
+              <Route path="/my-rewards" element={<MyRewards />} /> {/* Odebrane nagrody */}
 
 
             </Routes>
