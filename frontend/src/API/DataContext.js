@@ -32,10 +32,35 @@ export const DataProvider = ({ children }) => {
             console.log("Błąd pobierania:", e.message);
         }
     }
+    const getPointsBalance = async () => {
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            throw new Error("Brak tokena – użytkownik nie jest zalogowany.");
+        }
+
+        const response = await fetch('http://localhost:5000/points/balance', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Nie udało się pobrać stanu punktów.");
+        }
+
+        // Zwraca np.: { punkty: 150, suma_historyczna: 500 }
+        return data;
+    };
 
     return (
         <dataContext.Provider value={{ 
             fetchNearbyBusinesses, // Funkcja do wywołania
+            getPointsBalance,
             nearbyBusinesses,      // Wyniki wyszukiwania
         }}>
             {children}

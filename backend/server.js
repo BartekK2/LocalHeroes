@@ -616,6 +616,51 @@ app.get('/public/business/:id', async (req, res) => {
     }
 });
 
+// --- ENDPOINT: Klient sam sobie dodaje punkty (Self-Service) ---
+app.post('/points/self', verifyToken, async (req, res) => {
+    // 1. Sprawdzamy czy to klient (biznes nie ma punktów do zbierania)
+    if (req.user.accountType !== 'klient') {
+        return res.status(403).json({ message: "Tylko klient może mieć punkty." });
+    }
+
+    const t = await db.transaction();
+    try {
+        const userId = req.user.id; // <--- TU JEST KLUCZ: ID bierzemy z tokena
+        const pointsToAdd = parseInt(req.body.points);
+
+        if (!pointsToAdd || pointsToAdd <= 0) {
+            await t.rollback();
+            return res.status(400).json({ message: "Podaj dodatnią liczbę punktów." });
+        }
+
+        // 2. Pobieramy profil klienta na podstawie ID z tokena
+        const customer = await Customer.findByPk(userId, { transaction: t });
+
+        if (!customer) {
+            await t.rollback();
+            return res.status(404).json({ message: "Nie znaleziono profilu klienta." });
+        }
+
+        // 3. Dodajemy punkty
+        customer.punkty_aktualne += pointsToAdd;
+        customer.punkty_suma_historyczna += pointsToAdd;
+
+        await customer.save({ transaction: t });
+        await t.commit();
+
+        res.json({
+            message: "Dodano punkty!",
+            dodano: pointsToAdd,
+            nowe_saldo: customer.punkty_aktualne
+        });
+
+    } catch (error) {
+        await t.rollback();
+        console.error("Błąd self-points:", error);
+        res.status(500).json({ message: "Błąd serwera." });
+    }
+});
+
 
 // --- URUCHOMIENIE SERWERA (ZAWSZE NA SAMYM KOŃCU) ---
 

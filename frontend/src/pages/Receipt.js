@@ -4,13 +4,36 @@ import axios from 'axios';
 const ReceiptScanner = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
+  const addPointsToSelf = async (amount) => {
+      const token = localStorage.getItem('token');
 
-  const uploadReceipt = async (e) => {
+      if (!token) {
+          throw new Error("Nie jesteś zalogowany!");
+      }
+
+      const response = await fetch('http://localhost:5000/points/self', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ points: amount })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+          throw new Error(data.message || "Błąd podczas dodawania punktów");
+      }
+
+      return data; // Zwraca obiekt { message, dodano, nowe_saldo }
+  };
+const uploadReceipt = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const formData = new FormData();
-    formData.append('receipt', file); // Klucz musi być 'receipt' - tak jak w server.js
+    formData.append('receipt', file);
 
     setLoading(true);
     setData(null);
@@ -20,10 +43,31 @@ const ReceiptScanner = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      setData(response.data);
-      console.log("Dane z serwera:", response.data);
+      // Zapisujemy odpowiedź do zmiennej lokalnej, żeby mieć do niej dostęp natychmiast
+      const responseData = response.data;
+
+      // Aktualizujemy stan (żeby wyświetlić w UI)
+      setData(responseData);
+      console.log("Dane z serwera:", responseData);
+
+      try {
+          // POPRAWKA: Używamy responseData zamiast data
+          // Dodatkowo: lepiej użyć parseFloat i Math.round, chyba że chcesz ucinać końcówki
+          const totalValue = responseData.result?.total ? parseInt(responseData.result.total) : 0;
+          
+          if (totalValue > 0) {
+             const result = await addPointsToSelf(totalValue);
+             console.log("Gitara, nowe saldo:", result.nowe_saldo);
+             alert(`Sukces! Dodano ${totalValue} punktów!`);
+          } else {
+             console.log("Nie znaleziono kwoty na paragonie lub wynosi 0");
+          }
+
+      } catch (error) {
+          console.error(error.message);
+          alert("Błąd dodawania punktów: " + error.message);
+      }
     } catch (err) {
-      // Wyświetlamy szczegóły błędu z serwera w konsoli przeglądarki
       console.error("Błąd szczegółowy:", err.response?.data || err.message);
       alert("Błąd serwera: " + (err.response?.data?.details?.message || "Internal Server Error"));
     } finally {
