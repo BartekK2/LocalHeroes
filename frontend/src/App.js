@@ -22,6 +22,7 @@ import ReceiptUploader from './pages/Receipt';
 import AddReward from './pages/AddReward';
 import MyRewards from './pages/MyRewards';
 import VerifyCoupon from './pages/VerifyCoupon';
+import SendNotification from './pages/SendNotification';
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
               <Route path="/add-reward" element={<AddReward />} />
               <Route path="/my-rewards" element={<MyRewards />} />
               <Route path="/verify-coupon" element={<VerifyCoupon />} />
+              <Route path="/send-notification" element={<SendNotification />} />
 
 
             </Routes>

@@ -47,7 +47,8 @@ export default function Settings() {
     dlugosc_geograficzna: "",
     kategoria_biznesu: "",
     numer_kontaktowy_biznes: "",
-    link_do_strony_www: ""
+    link_do_strony_www: "",
+    adres: ""
   });
 
   useEffect(() => {
@@ -183,6 +184,26 @@ export default function Settings() {
                   name="data_urodzenia" value={formData.data_urodzenia || ""} onChange={handleChange}
                   InputProps={{
                     startAdornment: <InputAdornment position="start"><EventIcon color="action" /></InputAdornment>,
+                  }}
+                />
+              </Grid>
+
+              {/* Adres dla powiadomień lokalnych */}
+              <Grid item xs={12} sx={{ mt: 2 }}>
+                <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>Twoja Lokalizacja</Typography>
+                <Divider sx={{ mb: 2 }} />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Adres (do powiadomień lokalnych)"
+                  name="adres"
+                  value={formData.adres || ""}
+                  onChange={handleChange}
+                  placeholder="np. Warszawa, Marszałkowska 1"
+                  helperText="Podaj adres aby otrzymywać powiadomienia od lokalnych firm"
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><LocationOnIcon color="action" /></InputAdornment>,
                   }}
                 />
               </Grid>

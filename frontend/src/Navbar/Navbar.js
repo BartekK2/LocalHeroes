@@ -15,7 +15,9 @@ import {
   Menu,
   MenuItem,
   Tooltip,
-  Chip // <--- Dodano import Chip
+  Chip,
+  Badge,
+  Popover
 } from "@mui/material";
 import axios from "axios"; // <--- Dodano import axios do pobierania punktów
 
@@ -30,6 +32,8 @@ import LoyaltyIcon from '@mui/icons-material/Loyalty';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import CampaignIcon from '@mui/icons-material/Campaign';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useContext, useEffect, useCallback } from "react"; // <--- Dodano useCallback
@@ -51,12 +55,15 @@ const customerOnlyLinks = [
 const businessOnlyLinks = [
   { label: "Dodaj nagrodę", path: "/add-reward", icon: CardGiftcardIcon },
   { label: "Weryfikuj kupon", path: "/verify-coupon", icon: QrCodeScannerIcon },
+  { label: "Wyślij powiadomienie", path: "/send-notification", icon: CampaignIcon },
 ];
 
 export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [anchorElUser, setAnchorElUser] = useState(null);
-  const [points, setPoints] = useState(null); // <--- Stan na punkty
+  const [points, setPoints] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notifAnchor, setNotifAnchor] = useState(null);
 
   const { user, logout } = useContext(AuthContext);
   const { setPointsRefreshCallback } = useContext(dataContext); // <--- Import refresh callback
@@ -95,6 +102,29 @@ export default function Navbar() {
     fetchPoints();
   }, [fetchPoints, location.pathname]);
 
+  // --- Pobieranie powiadomień dla klienta ---
+  const fetchNotifications = useCallback(async () => {
+    if (user && user.role === 'klient') {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await axios.get('http://localhost:5000/notifications/nearby', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (response.data) {
+          setNotifications(response.data);
+        }
+      } catch (error) {
+        console.error("Błąd pobierania powiadomień:", error);
+      }
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications, location.pathname]);
 
   const handleOpenUserMenu = (event) => {
     setAnchorElUser(event.currentTarget);
@@ -296,6 +326,115 @@ export default function Navbar() {
                   display: { xs: 'none', sm: 'flex' } // Ukryj na bardzo małych ekranach w toolbarze
                 }}
               />
+            )}
+
+            {/* --- IKONA POWIADOMIEŃ (TYLKO DLA KLIENTA) --- */}
+            {user && user.role === 'klient' && (
+              <>
+                <Tooltip title="Powiadomienia lokalne" arrow>
+                  <IconButton
+                    onClick={(e) => setNotifAnchor(e.currentTarget)}
+                    sx={{
+                      color: notifications.length > 0 ? 'primary.main' : 'text.secondary',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                        transform: 'scale(1.05)',
+                      }
+                    }}
+                  >
+                    <Badge
+                      badgeContent={notifications.length}
+                      color="error"
+                      max={9}
+                    >
+                      <NotificationsIcon />
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
+
+                <Popover
+                  open={Boolean(notifAnchor)}
+                  anchorEl={notifAnchor}
+                  onClose={() => setNotifAnchor(null)}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  PaperProps={{
+                    sx: {
+                      width: 350,
+                      maxHeight: 400,
+                      overflow: 'hidden',
+                      borderRadius: 3,
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                    }
+                  }}
+                >
+                  <Box sx={{ p: 2, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      Powiadomienia lokalne
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Od firm w Twojej okolicy
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ maxHeight: 320, overflow: 'auto' }}>
+                    {notifications.length === 0 ? (
+                      <Box sx={{ p: 3, textAlign: 'center' }}>
+                        <NotificationsIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                        <Typography color="text.secondary">
+                          Brak powiadomień
+                        </Typography>
+                        <Typography variant="caption" color="text.disabled">
+                          Podaj swój adres w ustawieniach
+                        </Typography>
+                      </Box>
+                    ) : (
+                      notifications.map((notif) => (
+                        <Box
+                          key={notif.id}
+                          sx={{
+                            p: 2,
+                            borderBottom: '1px solid rgba(0,0,0,0.04)',
+                            transition: 'background 0.2s',
+                            '&:hover': {
+                              bgcolor: 'rgba(99, 102, 241, 0.04)',
+                            }
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                            <Box
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <CampaignIcon sx={{ color: 'white', fontSize: 20 }} />
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="subtitle2" fontWeight="bold">
+                                {notif.tytul}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                {notif.tresc}
+                              </Typography>
+                              <Typography variant="caption" color="primary.main" fontWeight="medium">
+                                {notif.firma?.nazwa} · {notif.firma?.miasto}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Box>
+                      ))
+                    )}
+                  </Box>
+                </Popover>
+              </>
             )}
 
             {user ? (

@@ -74,6 +74,11 @@ const Customer = db.define('Customer', {
     kod_polecenia: { type: DataTypes.STRING, unique: true },
     numer_karty_lojalnosciowej: { type: DataTypes.STRING, unique: true },
 
+    // Lokalizacja klienta (do powiadomień od firm)
+    adres: { type: DataTypes.STRING },
+    szerokosc_geograficzna: { type: DataTypes.FLOAT },
+    dlugosc_geograficzna: { type: DataTypes.FLOAT },
+
     data_utworzenia_profilu: { type: DataTypes.DATE, defaultValue: Sequelize.NOW }
 });
 
@@ -167,6 +172,25 @@ const Opinion = db.define('Opinion', {
     data_dodania: { type: DataTypes.DATE, defaultValue: Sequelize.NOW }
 });
 
+// Model powiadomień biznesowych
+const BusinessNotification = db.define('BusinessNotification', {
+    businessId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'Businesses', key: 'userId' }
+    },
+    tytul: { type: DataTypes.STRING, allowNull: false },
+    tresc: { type: DataTypes.TEXT, allowNull: false },
+    promien_km: { type: DataTypes.FLOAT, defaultValue: 5 },
+    data_wyslania: { type: DataTypes.DATE, defaultValue: Sequelize.NOW },
+    data_wygasniecia: { type: DataTypes.DATE },
+    oplata: { type: DataTypes.FLOAT, defaultValue: 99.00 },
+    status_platnosci: {
+        type: DataTypes.ENUM('oplacone', 'nieoplacone'),
+        defaultValue: 'oplacone'
+    }
+});
+
 // --- RELACJE ---
 
 User.hasOne(Business, { foreignKey: 'userId', onDelete: 'CASCADE' });
@@ -190,6 +214,10 @@ Opinion.belongsTo(Customer, { foreignKey: 'customerId' });
 
 Business.hasMany(Opinion, { foreignKey: 'businessId', onDelete: 'CASCADE' });
 Opinion.belongsTo(Business, { foreignKey: 'businessId' });
+
+// Powiadomienia biznesowe
+Business.hasMany(BusinessNotification, { foreignKey: 'businessId', onDelete: 'CASCADE' });
+BusinessNotification.belongsTo(Business, { foreignKey: 'businessId' });
 
 // --- MIDDLEWARE ---
 
@@ -783,12 +811,28 @@ app.put('/profile', verifyToken, async (req, res) => {
             profile = await Customer.findByPk(id);
             if (!profile) return res.status(404).json({ message: "Profil nie istnieje" });
 
-            await profile.update({
+            // Przygotuj dane do aktualizacji
+            const updateData = {
                 imie: req.body.imie,
                 nazwisko: req.body.nazwisko,
                 numer_telefonu: req.body.numer_telefonu,
-                data_urodzenia: req.body.data_urodzenia
-            });
+                data_urodzenia: req.body.data_urodzenia,
+                adres: req.body.adres
+            };
+
+            // Jeśli adres się zmienił, wykonaj geocoding
+            if (req.body.adres && req.body.adres !== profile.adres) {
+                const coords = await geocodeAddress(req.body.adres);
+                if (coords) {
+                    updateData.szerokosc_geograficzna = coords.lat;
+                    updateData.dlugosc_geograficzna = coords.lng;
+                    console.log(`Geocoding dla "${req.body.adres}": ${coords.lat}, ${coords.lng}`);
+                } else {
+                    console.warn(`Nie udało się znaleźć współrzędnych dla: ${req.body.adres}`);
+                }
+            }
+
+            await profile.update(updateData);
 
         } else if (accountType === 'biznes') {
             profile = await Business.findByPk(id);
@@ -895,6 +939,162 @@ app.post('/points/self', verifyToken, async (req, res) => {
         await t.rollback();
         console.error("Błąd self-points:", error);
         res.status(500).json({ message: "Błąd serwera." });
+    }
+});
+
+
+// --- FUNKCJA GEOCODINGU (Nominatim OpenStreetMap) ---
+const geocodeAddress = async (address) => {
+    try {
+        const encodedAddress = encodeURIComponent(address);
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
+            {
+                headers: {
+                    'User-Agent': 'LocalHeroes/1.0'
+                }
+            }
+        );
+
+        if (!response.ok) {
+            console.error('Geocoding API error:', response.status);
+            return null;
+        }
+
+        const data = await response.json();
+        if (data && data.length > 0) {
+            return {
+                lat: parseFloat(data[0].lat),
+                lng: parseFloat(data[0].lon)
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error('Błąd geocodingu:', error);
+        return null;
+    }
+};
+
+// --- ENDPOINTY POWIADOMIEŃ BIZNESOWYCH ---
+
+// Biznes wysyła powiadomienie (z symulacją płatności)
+app.post('/notifications/send', verifyToken, async (req, res) => {
+    if (req.user.accountType !== 'biznes') {
+        return res.status(403).json({ message: "Tylko firmy mogą wysyłać powiadomienia" });
+    }
+
+    try {
+        const { tytul, tresc, promien_km = 5 } = req.body;
+
+        if (!tytul || !tresc) {
+            return res.status(400).json({ message: "Wymagane pola: tytul, tresc" });
+        }
+
+        const business = await Business.findByPk(req.user.id);
+        if (!business) {
+            return res.status(404).json({ message: "Profil biznesu nie istnieje" });
+        }
+
+        if (!business.szerokosc_geograficzna || !business.dlugosc_geograficzna) {
+            return res.status(400).json({
+                message: "Uzupełnij lokalizację firmy w ustawieniach przed wysłaniem powiadomienia"
+            });
+        }
+
+        // Data wygaśnięcia - 7 dni od teraz
+        const dataWygasniecia = new Date();
+        dataWygasniecia.setDate(dataWygasniecia.getDate() + 7);
+
+        const notification = await BusinessNotification.create({
+            businessId: req.user.id,
+            tytul,
+            tresc,
+            promien_km: parseFloat(promien_km) || 5,
+            data_wygasniecia: dataWygasniecia,
+            oplata: 99.00,
+            status_platnosci: 'oplacone'
+        });
+
+        res.json({
+            message: "Powiadomienie wysłane pomyślnie!",
+            notification: {
+                id: notification.id,
+                tytul: notification.tytul,
+                promien_km: notification.promien_km,
+                data_wygasniecia: notification.data_wygasniecia,
+                oplata: notification.oplata
+            }
+        });
+    } catch (error) {
+        console.error("Błąd wysyłania powiadomienia:", error);
+        res.status(500).json({ message: "Błąd wysyłania powiadomienia" });
+    }
+});
+
+// Klient pobiera powiadomienia od firm w okolicy
+app.get('/notifications/nearby', verifyToken, async (req, res) => {
+    if (req.user.accountType !== 'klient') {
+        return res.status(403).json({ message: "Tylko klienci mogą odbierać powiadomienia" });
+    }
+
+    try {
+        const customer = await Customer.findByPk(req.user.id);
+        if (!customer) {
+            return res.status(404).json({ message: "Profil klienta nie istnieje" });
+        }
+
+        if (!customer.szerokosc_geograficzna || !customer.dlugosc_geograficzna) {
+            return res.json([]); // Brak lokalizacji = brak powiadomień
+        }
+
+        const customerLat = customer.szerokosc_geograficzna;
+        const customerLng = customer.dlugosc_geograficzna;
+
+        // Pobierz wszystkie aktywne (niexpired) powiadomienia
+        const notifications = await BusinessNotification.findAll({
+            where: {
+                status_platnosci: 'oplacone',
+                data_wygasniecia: {
+                    [Op.gt]: new Date()
+                }
+            },
+            include: [{
+                model: Business,
+                attributes: ['nazwa_firmy', 'miasto', 'ulica', 'kategoria_biznesu',
+                    'szerokosc_geograficzna', 'dlugosc_geograficzna']
+            }],
+            order: [['data_wyslania', 'DESC']]
+        });
+
+        // Filtruj tylko te, których firma jest w zasięgu promienia powiadomienia
+        const nearbyNotifications = notifications.filter(notif => {
+            const business = notif.Business;
+            if (!business?.szerokosc_geograficzna || !business?.dlugosc_geograficzna) {
+                return false;
+            }
+            const distance = haversineDistance(
+                customerLat, customerLng,
+                business.szerokosc_geograficzna, business.dlugosc_geograficzna
+            );
+            return distance <= notif.promien_km;
+        });
+
+        const result = nearbyNotifications.map(notif => ({
+            id: notif.id,
+            tytul: notif.tytul,
+            tresc: notif.tresc,
+            data_wyslania: notif.data_wyslania,
+            firma: {
+                nazwa: notif.Business.nazwa_firmy,
+                miasto: notif.Business.miasto,
+                kategoria: notif.Business.kategoria_biznesu
+            }
+        }));
+
+        res.json(result);
+    } catch (error) {
+        console.error("Błąd pobierania powiadomień:", error);
+        res.status(500).json({ message: "Błąd pobierania powiadomień" });
     }
 });
 
