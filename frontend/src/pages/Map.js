@@ -3,7 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import { dataContext } from '../API/DataContext';
 import { AuthContext } from '../API/AuthContext';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Box, TextField, Button, Paper, Typography, CircularProgress, List, ListItem, ListItemText, Chip, Divider, IconButton } from '@mui/material';
+import { Box, TextField, Button, Paper, Typography, CircularProgress, List, ListItem, ListItemText, Chip, Divider, IconButton, Rating, Alert } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import SaveIcon from '@mui/icons-material/Save';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -14,6 +14,7 @@ import LanguageIcon from '@mui/icons-material/Language';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import StarIcon from '@mui/icons-material/Star';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 
 const MapboxExample = () => {
   const { fetchNearbyBusinesses, nearbyBusinesses } = useContext(dataContext);
@@ -51,6 +52,14 @@ const MapboxExample = () => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [claimingRewardId, setClaimingRewardId] = useState(null);
   const [claimSuccess, setClaimSuccess] = useState(null);
+
+  // State for review form
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewDescription, setReviewDescription] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [reviewError, setReviewError] = useState(null);
+  const [businessOpinions, setBusinessOpinions] = useState([]);
 
   const viewRef = useRef(view);
   useEffect(() => {
@@ -99,10 +108,18 @@ const MapboxExample = () => {
   const hoveredStateId = useRef(null);
   const [address, setAddress] = useState('');
 
+  // Use ref to hold the latest handleBuildings function to avoid re-initializing the map
+  const handleBuildingsRef = useRef(null);
+
   // Memoized handler to avoid dependency issues
   const handleBuildings = useCallback((lat, lng, radius) => {
     fetchNearbyBusinesses(lat, lng, radius);
   }, [fetchNearbyBusinesses]);
+
+  // Keep ref updated with the latest handler
+  useEffect(() => {
+    handleBuildingsRef.current = handleBuildings;
+  }, [handleBuildings]);
 
   // Handle click on business from list - fly to location and highlight building
   const handleBusinessClick = useCallback((business) => {
@@ -156,16 +173,20 @@ const MapboxExample = () => {
     if (!isBusinessUser && business.userId) {
       setSelectedBusinessData(business);
       setProfileLoading(true);
+      setBusinessOpinions([]);
 
-      // Fetch full business profile
-      fetch(`http://localhost:5000/public/business/${business.userId}`)
-        .then(res => res.json())
-        .then(data => {
-          setBusinessProfileData(data);
+      // Fetch profile and opinions in parallel
+      Promise.all([
+        fetch(`http://localhost:5000/public/business/${business.userId}`).then(r => r.json()),
+        fetch(`http://localhost:5000/business/${business.userId}/opinions`).then(r => r.json())
+      ])
+        .then(([profile, opinions]) => {
+          setBusinessProfileData(profile);
+          setBusinessOpinions(Array.isArray(opinions) ? opinions : []);
           setProfileLoading(false);
         })
         .catch(err => {
-          console.error('Error fetching business profile:', err);
+          console.error('Error fetching data:', err);
           setProfileLoading(false);
         });
     }
@@ -208,6 +229,45 @@ const MapboxExample = () => {
       alert('Błąd połączenia z serwerem');
     } finally {
       setClaimingRewardId(null);
+    }
+  };
+
+  // Handle submitting a review
+  const handleSubmitReview = async () => {
+    if (!user?.token || !reviewRating || !selectedBusinessData?.userId) return;
+
+    setSubmittingReview(true);
+    setReviewError(null);
+
+    try {
+      const response = await fetch('http://localhost:5000/opinions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({
+          businessId: selectedBusinessData.userId,
+          ocena: reviewRating,
+          opis: reviewDescription || null
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setReviewSuccess(true);
+        setReviewRating(0);
+        setReviewDescription('');
+        setTimeout(() => setReviewSuccess(false), 5000);
+      } else {
+        setReviewError(data.message || 'Nie udało się dodać opinii');
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      setReviewError('Błąd połączenia z serwerem');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -338,7 +398,9 @@ const MapboxExample = () => {
 
         if (latDiff > 0.01 || lngDiff > 0.01) {
           lastFetchedPos.current = { lng: center.lng, lat: center.lat };
-          handleBuildings(center.lat, center.lng, 100);
+          if (handleBuildingsRef.current) {
+            handleBuildingsRef.current(center.lat, center.lng, 100);
+          }
         }
       });
 
@@ -396,7 +458,8 @@ const MapboxExample = () => {
       setMapLoaded(false);
       map.remove();
     };
-  }, [handleBuildings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectedBusiness = nearbyBusinesses.find((b) => String(b.numer_na_mapie) === String(selected));
 
@@ -604,6 +667,137 @@ const MapboxExample = () => {
                         ))}
                       </Box>
                     )}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Opinions List Section */}
+              {businessOpinions.length > 0 && (
+                <Box sx={{ p: 2, borderTop: '1px solid rgba(0,0,0,0.06)', background: 'rgba(99, 102, 241, 0.02)' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <StarIcon sx={{ color: 'secondary.main', fontSize: 20 }} />
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      Opinie ({businessOpinions.length})
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    {businessOpinions.slice(0, 5).map((opinion) => (
+                      <Box
+                        key={opinion.id}
+                        sx={{
+                          backgroundColor: 'white',
+                          p: 1.5,
+                          borderRadius: '10px',
+                          border: '1px solid rgba(99, 102, 241, 0.1)',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                          <Typography variant="body2" fontWeight={600} color="text.primary">
+                            {opinion.Customer?.imie || 'Anonim'}
+                          </Typography>
+                          <Rating
+                            value={opinion.ocena}
+                            readOnly
+                            size="small"
+                            sx={{
+                              '& .MuiRating-iconFilled': { color: '#f59e0b' },
+                            }}
+                          />
+                        </Box>
+                        {opinion.opis && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {opinion.opis}
+                          </Typography>
+                        )}
+                        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5 }}>
+                          {new Date(opinion.data_dodania).toLocaleDateString('pl-PL')}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Review Form Section - only for logged in customers */}
+              {user && user.role === 'klient' && (
+                <Box sx={{ p: 2, borderTop: '1px solid rgba(0,0,0,0.06)', background: 'white' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <RateReviewIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      Dodaj opinię
+                    </Typography>
+                  </Box>
+
+                  {reviewSuccess && (
+                    <Alert severity="success" sx={{ mb: 2, borderRadius: '8px', py: 0.5 }}>
+                      Opinia dodana!
+                    </Alert>
+                  )}
+
+                  {reviewError && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: '8px', py: 0.5 }}>
+                      {reviewError}
+                    </Alert>
+                  )}
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                        Twoja ocena
+                      </Typography>
+                      <Rating
+                        value={reviewRating}
+                        onChange={(e, newValue) => setReviewRating(newValue)}
+                        size="large"
+                        sx={{
+                          '& .MuiRating-iconFilled': { color: '#f59e0b' },
+                          '& .MuiRating-iconHover': { color: '#fbbf24' },
+                        }}
+                      />
+                    </Box>
+
+                    <TextField
+                      placeholder="Opisz swoje doświadczenie (opcjonalnie)"
+                      value={reviewDescription}
+                      onChange={(e) => setReviewDescription(e.target.value)}
+                      multiline
+                      rows={2}
+                      size="small"
+                      fullWidth
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '10px',
+                          fontSize: '0.875rem',
+                        }
+                      }}
+                    />
+
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={handleSubmitReview}
+                      disabled={!reviewRating || submittingReview || reviewSuccess}
+                      sx={{
+                        py: 1,
+                        borderRadius: '10px',
+                        fontWeight: 600,
+                        background: reviewSuccess
+                          ? '#22c55e'
+                          : 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                        },
+                      }}
+                    >
+                      {submittingReview ? (
+                        <CircularProgress size={20} color="inherit" />
+                      ) : reviewSuccess ? (
+                        '✓ Dodano!'
+                      ) : (
+                        'Wyślij opinię'
+                      )}
+                    </Button>
                   </Box>
                 </Box>
               )}

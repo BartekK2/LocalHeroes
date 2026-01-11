@@ -146,6 +146,27 @@ const ClaimedReward = db.define('ClaimedReward', {
     data_wygasniecia: { type: DataTypes.DATE }
 });
 
+// Model opinii
+const Opinion = db.define('Opinion', {
+    customerId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'Customers', key: 'userId' }
+    },
+    businessId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'Businesses', key: 'userId' }
+    },
+    ocena: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        validate: { min: 1, max: 5 }
+    },
+    opis: { type: DataTypes.TEXT },
+    data_dodania: { type: DataTypes.DATE, defaultValue: Sequelize.NOW }
+});
+
 // --- RELACJE ---
 
 User.hasOne(Business, { foreignKey: 'userId', onDelete: 'CASCADE' });
@@ -162,6 +183,13 @@ ClaimedReward.belongsTo(Customer, { foreignKey: 'customerId' });
 
 Reward.hasMany(ClaimedReward, { foreignKey: 'rewardId' });
 ClaimedReward.belongsTo(Reward, { foreignKey: 'rewardId' });
+
+// Opinie
+Customer.hasMany(Opinion, { foreignKey: 'customerId', onDelete: 'CASCADE' });
+Opinion.belongsTo(Customer, { foreignKey: 'customerId' });
+
+Business.hasMany(Opinion, { foreignKey: 'businessId', onDelete: 'CASCADE' });
+Opinion.belongsTo(Business, { foreignKey: 'businessId' });
 
 // --- MIDDLEWARE ---
 
@@ -296,6 +324,39 @@ app.post('/rewards', verifyToken, async (req, res) => {
     }
 });
 
+// Endpoint dla odebranych nagród klienta - MUSI BYĆ PRZED /rewards/:id!
+app.get('/rewards/my', verifyToken, async (req, res) => {
+    console.log('=== GET /rewards/my ===');
+    console.log('User:', req.user);
+
+    if (req.user.accountType !== 'klient') {
+        return res.status(403).json({ message: "Tylko klienci mogą przeglądać odebrane nagrody" });
+    }
+
+    try {
+        console.log('Fetching claimed rewards for customerId:', req.user.id);
+
+        const claimedRewards = await ClaimedReward.findAll({
+            where: { customerId: req.user.id },
+            include: [{
+                model: Reward,
+                include: [{
+                    model: Business,
+                    attributes: ['nazwa_firmy', 'miasto', 'ulica']
+                }]
+            }],
+            order: [['data_odebrania', 'DESC']]
+        });
+
+        console.log('Found claimed rewards:', claimedRewards.length);
+        res.json(claimedRewards);
+    } catch (error) {
+        console.error("Błąd pobierania odebranych nagród:", error.message);
+        console.error("Stack:", error.stack);
+        res.status(500).json({ message: "Błąd pobierania odebranych nagród: " + error.message });
+    }
+});
+
 app.get('/rewards/:id', async (req, res) => {
     try {
         const reward = await Reward.findByPk(req.params.id, {
@@ -326,32 +387,6 @@ app.get('/business/:id/rewards', async (req, res) => {
     } catch (error) {
         console.error("Błąd pobierania nagród:", error);
         res.status(500).json({ message: "Błąd pobierania nagród" });
-    }
-});
-
-// Endpoint dla odebranych nagród klienta
-app.get('/rewards/my', verifyToken, async (req, res) => {
-    if (req.user.accountType !== 'klient') {
-        return res.status(403).json({ message: "Tylko klienci mogą przeglądać odebrane nagrody" });
-    }
-
-    try {
-        const claimedRewards = await ClaimedReward.findAll({
-            where: { customerId: req.user.id },
-            include: [{
-                model: Reward,
-                include: [{
-                    model: Business,
-                    attributes: ['nazwa_firmy', 'miasto', 'ulica']
-                }]
-            }],
-            order: [['data_odebrania', 'DESC']]
-        });
-
-        res.json(claimedRewards);
-    } catch (error) {
-        console.error("Błąd pobierania odebranych nagród:", error);
-        res.status(500).json({ message: "Błąd pobierania odebranych nagród" });
     }
 });
 
@@ -426,6 +461,182 @@ app.post('/rewards/claim', verifyToken, async (req, res) => {
         await t.rollback();
         console.error("Błąd transakcji wymiany punktów:", error);
         res.status(500).json({ message: "Błąd transakcji wymiany punktów" });
+    }
+});
+
+// --- ENDPOINTY DLA WERYFIKACJI KUPONÓW ---
+
+// Sprawdź kupon (bez realizacji)
+app.get('/coupons/check/:code', verifyToken, async (req, res) => {
+    if (req.user.accountType !== 'biznes') {
+        return res.status(403).json({ message: "Tylko biznesy mogą weryfikować kupony" });
+    }
+
+    try {
+        const coupon = await ClaimedReward.findOne({
+            where: { kod_unikalny: req.params.code.toUpperCase() },
+            include: [{
+                model: Reward,
+                include: [{ model: Business, attributes: ['userId', 'nazwa_firmy'] }]
+            }, {
+                model: Customer,
+                attributes: ['imie', 'nazwisko']
+            }]
+        });
+
+        if (!coupon) {
+            return res.status(404).json({ message: "Kupon nie został znaleziony", valid: false });
+        }
+
+        if (coupon.Reward.Business.userId !== req.user.id) {
+            return res.status(403).json({ message: "Ten kupon nie należy do Twojego biznesu", valid: false });
+        }
+
+        res.json({
+            valid: coupon.status === 'do_wykorzystania',
+            status: coupon.status,
+            kupon: {
+                kod: coupon.kod_unikalny,
+                nagroda: coupon.Reward.nazwa,
+                opis: coupon.Reward.opis,
+                koszt: coupon.Reward.koszt_punktowy,
+                klient: `${coupon.Customer?.imie || ''} ${coupon.Customer?.nazwisko || ''}`.trim() || 'Anonimowy',
+                data_odebrania: coupon.data_odebrania
+            }
+        });
+    } catch (error) {
+        console.error("Błąd sprawdzania kuponu:", error);
+        res.status(500).json({ message: "Błąd sprawdzania kuponu" });
+    }
+});
+
+// Zrealizuj kupon
+app.post('/coupons/redeem', verifyToken, async (req, res) => {
+    if (req.user.accountType !== 'biznes') {
+        return res.status(403).json({ message: "Tylko biznesy mogą realizować kupony" });
+    }
+
+    try {
+        const { code } = req.body;
+        if (!code) {
+            return res.status(400).json({ message: "Wymagany kod kuponu" });
+        }
+
+        const coupon = await ClaimedReward.findOne({
+            where: { kod_unikalny: code.toUpperCase() },
+            include: [{
+                model: Reward,
+                include: [{ model: Business, attributes: ['userId', 'nazwa_firmy'] }]
+            }]
+        });
+
+        if (!coupon) {
+            return res.status(404).json({ message: "Kupon nie został znaleziony", success: false });
+        }
+
+        if (coupon.Reward.Business.userId !== req.user.id) {
+            return res.status(403).json({ message: "Ten kupon nie należy do Twojego biznesu", success: false });
+        }
+
+        if (coupon.status !== 'do_wykorzystania') {
+            return res.status(400).json({
+                message: `Kupon został już ${coupon.status === 'wykorzystany' ? 'wykorzystany' : 'anulowany'}`,
+                success: false
+            });
+        }
+
+        // Oznacz kupon jako wykorzystany
+        coupon.status = 'wykorzystany';
+        coupon.data_wykorzystania = new Date();
+        await coupon.save();
+
+        res.json({
+            success: true,
+            message: "Kupon zrealizowany pomyślnie!",
+            nagroda: coupon.Reward.nazwa
+        });
+    } catch (error) {
+        console.error("Błąd realizacji kuponu:", error);
+        res.status(500).json({ message: "Błąd realizacji kuponu" });
+    }
+});
+
+// --- ENDPOINTY DLA OPINII ---
+
+app.post('/opinions', verifyToken, async (req, res) => {
+    if (req.user.accountType !== 'klient') {
+        return res.status(403).json({ message: "Tylko klienci mogą dodawać opinie" });
+    }
+
+    try {
+        const { businessId, ocena, opis } = req.body;
+
+        if (!businessId || !ocena) {
+            return res.status(400).json({ message: "Wymagane pola: businessId, ocena" });
+        }
+
+        if (ocena < 1 || ocena > 5) {
+            return res.status(400).json({ message: "Ocena musi być w zakresie 1-5" });
+        }
+
+        const business = await Business.findByPk(businessId);
+        if (!business) {
+            return res.status(404).json({ message: "Biznes nie został znaleziony" });
+        }
+
+        // Sprawdź czy użytkownik już dodał opinię
+        const existingOpinion = await Opinion.findOne({
+            where: { customerId: req.user.id, businessId }
+        });
+
+        if (existingOpinion) {
+            return res.status(400).json({ message: "Już dodałeś opinię dla tego biznesu" });
+        }
+
+        // Dodaj opinię
+        const opinion = await Opinion.create({
+            customerId: req.user.id,
+            businessId,
+            ocena,
+            opis: opis || null
+        });
+
+        // Zaktualizuj średnią ocenę biznesu
+        const allOpinions = await Opinion.findAll({ where: { businessId } });
+        const avgRating = allOpinions.reduce((sum, op) => sum + op.ocena, 0) / allOpinions.length;
+
+        await Business.update({
+            srednia_ocena: Math.round(avgRating * 10) / 10,
+            liczba_opinii: allOpinions.length
+        }, { where: { userId: businessId } });
+
+        res.json({
+            message: "Opinia dodana pomyślnie",
+            opinion,
+            nowa_srednia: Math.round(avgRating * 10) / 10
+        });
+    } catch (error) {
+        console.error("Błąd dodawania opinii:", error);
+        res.status(500).json({ message: "Błąd dodawania opinii" });
+    }
+});
+
+// Pobierz opinie dla biznesu
+app.get('/business/:id/opinions', async (req, res) => {
+    try {
+        const opinions = await Opinion.findAll({
+            where: { businessId: req.params.id },
+            include: [{
+                model: Customer,
+                attributes: ['imie']
+            }],
+            order: [['data_dodania', 'DESC']]
+        });
+
+        res.json(opinions);
+    } catch (error) {
+        console.error("Błąd pobierania opinii:", error);
+        res.status(500).json({ message: "Błąd pobierania opinii" });
     }
 });
 
@@ -692,7 +903,7 @@ app.post('/points/self', verifyToken, async (req, res) => {
 
 app.listen(5000, async () => {
     try {
-        await db.sync();
+        await db.sync({ alter: true });
         console.log("Serwer: http://localhost:5000");
     } catch (error) {
         console.error("Błąd podczas inicjalizacji bazy:", error.message);

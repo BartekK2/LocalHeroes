@@ -37,7 +37,13 @@ const MyRewards = () => {
     // Fetch claimed rewards
     useEffect(() => {
         const fetchRewards = async () => {
-            if (!user?.token) return;
+            if (!user?.token) {
+                console.log('MyRewards: No token, skipping fetch');
+                setLoading(false);
+                return;
+            }
+
+            console.log('MyRewards: Fetching with token');
 
             try {
                 const response = await fetch('http://localhost:5000/rewards/my', {
@@ -46,17 +52,30 @@ const MyRewards = () => {
                     }
                 });
 
-                const data = await response.json();
+                console.log('MyRewards: Response status:', response.status);
+
+                const text = await response.text();
+                console.log('MyRewards: Raw response:', text.substring(0, 200));
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (parseErr) {
+                    console.error('MyRewards: Failed to parse JSON:', parseErr);
+                    setError('Błąd parsowania odpowiedzi serwera');
+                    return;
+                }
 
                 if (response.ok) {
+                    console.log('MyRewards: Success, found', data.length, 'rewards');
                     setRewards(data);
                 } else {
-                    console.error('Server error:', response.status, data);
+                    console.error('MyRewards: Server error:', response.status, data);
                     setError(data.message || 'Nie udało się pobrać nagród');
                 }
             } catch (err) {
-                console.error('Error fetching rewards:', err);
-                setError('Błąd połączenia z serwerem');
+                console.error('MyRewards: Fetch error:', err);
+                setError('Błąd połączenia z serwerem: ' + err.message);
             } finally {
                 setLoading(false);
             }

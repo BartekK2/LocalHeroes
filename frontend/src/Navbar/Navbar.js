@@ -26,9 +26,10 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MapIcon from '@mui/icons-material/Map';
-import LoyaltyIcon from '@mui/icons-material/Loyalty'; // <--- Ikona do punktów
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'; // <--- Ikona do paragonów
-import CardGiftcardIcon from '@mui/icons-material/CardGiftcard'; // <--- Ikona do nagród
+import LoyaltyIcon from '@mui/icons-material/Loyalty';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useContext, useEffect, useCallback } from "react"; // <--- Dodano useCallback
@@ -49,6 +50,7 @@ const customerOnlyLinks = [
 // Link widoczny tylko dla biznesu
 const businessOnlyLinks = [
   { label: "Dodaj nagrodę", path: "/add-reward", icon: CardGiftcardIcon },
+  { label: "Weryfikuj kupon", path: "/verify-coupon", icon: QrCodeScannerIcon },
 ];
 
 export default function Navbar() {
@@ -227,16 +229,16 @@ export default function Navbar() {
                 component={Link}
                 to={link.path}
                 sx={{
-                  color: isActive(link.path) ? 'secondary.main' : 'text.secondary',
+                  color: isActive(link.path) ? 'primary.main' : 'text.secondary',
                   fontWeight: isActive(link.path) ? 600 : 500,
                   px: 2,
                   py: 1,
                   borderRadius: '10px',
-                  backgroundColor: isActive(link.path) ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                  backgroundColor: isActive(link.path) ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
                   transition: 'all 0.2s ease',
                   '&:hover': {
-                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-                    color: 'secondary.main',
+                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                    color: 'primary.main',
                     transform: 'translateY(-1px)',
                   },
                 }}
@@ -253,16 +255,16 @@ export default function Navbar() {
                 component={Link}
                 to={link.path}
                 sx={{
-                  color: isActive(link.path) ? 'secondary.main' : 'text.secondary',
+                  color: isActive(link.path) ? 'primary.main' : 'text.secondary',
                   fontWeight: isActive(link.path) ? 600 : 500,
                   px: 2,
                   py: 1,
                   borderRadius: '10px',
-                  backgroundColor: isActive(link.path) ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                  backgroundColor: isActive(link.path) ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
                   transition: 'all 0.2s ease',
                   '&:hover': {
-                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-                    color: 'secondary.main',
+                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                    color: 'primary.main',
                     transform: 'translateY(-1px)',
                   },
                 }}

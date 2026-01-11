@@ -19,8 +19,9 @@ import Settings from './pages/Settings/Settings'; // <--- Dodano import Settings
 import "./App.css";
 import Profil from './components/profil';
 import ReceiptUploader from './pages/Receipt';
-import AddReward from './pages/AddReward'; // <--- Import AddReward
-import MyRewards from './pages/MyRewards'; // <--- Import MyRewards
+import AddReward from './pages/AddReward';
+import MyRewards from './pages/MyRewards';
+import VerifyCoupon from './pages/VerifyCoupon';
 
 function App() {
   return (
@@ -44,8 +45,9 @@ function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/profil" element={<Profil businessId={1} />} />
               <Route path="/receipt" element={<ReceiptUploader />} />
-              <Route path="/add-reward" element={<AddReward />} /> {/* Nowa trasa */}
-              <Route path="/my-rewards" element={<MyRewards />} /> {/* Odebrane nagrody */}
+              <Route path="/add-reward" element={<AddReward />} />
+              <Route path="/my-rewards" element={<MyRewards />} />
+              <Route path="/verify-coupon" element={<VerifyCoupon />} />
 
 
             </Routes>
